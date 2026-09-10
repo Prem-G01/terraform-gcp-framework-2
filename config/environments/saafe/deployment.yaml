@@ -101,20 +101,24 @@ resources:
       # the real value after apply:
       #   gcloud secrets versions add <secret_id> \
       #     --project prj-dg-api-prod-shared --data-file=-
-      # deletion_protection: true because the value, once set, can't be
-      # regenerated. length/special are ignored while manage_version is false.
+      # length/special are ignored while manage_version is false.
+      #
+      # deletion_protection: false FOR THE TEST CYCLE so `terraform destroy`
+      # works without a manual edit each time. Set back to true before the
+      # real deployment — a real externally-issued key/connection string
+      # can't be regenerated once lost.
       dg-api-token-private-key-saafe:
         secret_id: dg-api-token-private-key-saafe
         manage_version: false
         length: 44
         special: false
-        deletion_protection: true
+        deletion_protection: false
       dg-api-mysql-connection-saafe:
         secret_id: dg-api-mysql-connection-saafe
         manage_version: false
         length: 44
         special: false
-        deletion_protection: true
+        deletion_protection: false
 
   cloudsql:
     enabled: false
@@ -160,7 +164,7 @@ resources:
         name: dg-api-backend-saafe
         location: asia-south1
         ingress: INGRESS_TRAFFIC_ALL
-        deletion_protection: true
+        deletion_protection: false   # TEST CYCLE — set true before the real deployment
         allow_unauthenticated: false   # Auth: authenticated invokers only (no allUsers binding) — prod-shared project
         concurrency: 10
         timeout: "300s"
