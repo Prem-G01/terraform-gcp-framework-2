@@ -15,12 +15,18 @@ operator (premkumar.gunasekaran@docugenieai.com), local terraform
         │      prj-dg-devops-test-tf-logs-v5      (log export target)
         │   + prj-dg-api-prod-shared: central-log-export-prod-shared sink ──► tf-logs-v5
         │
-        └─ environments/saafe/  ──►  prj-dg-api-prod-shared
+        └─ environments/saafe/  ──►  prj-dg-api-prod-shared   (4 resources)
                dg-api-saafe                 (bucket)
-               dg-api-token-private-key-saafe, dg-api-mysql-connection-saafe (secrets)
-               cloudrun-service-account     (Cloud Run runtime identity)
-               dg-api-backend-saafe         (Cloud Run, private — no allUsers)
+               dg-api-token-private-key-saafe, dg-api-mysql-connection-saafe
+                                            (empty secret containers only)
+               dg-api-backend-saafe         (Cloud Run, private — no allUsers;
+                                             runs as the default compute SA)
 ```
+
+`environments/saafe` deliberately manages **nothing else** on the existing
+project: `resources.apis` and `resources.service_accounts` are off, and the
+secrets are created without a version (`manage_version: false`) — you add
+the real values after apply.
 
 The full per-environment / WIF / GitHub-Actions design still exists,
 unused, in `bootstrap/`, `bootstrap/grants/`, `.github/workflows/` — see
@@ -34,7 +40,7 @@ if it is ever wanted.
 | Project | Roles |
 |---|---|
 | `prj-dg-devops-test` | `roles/storage.admin`, `roles/serviceusage.serviceUsageAdmin` |
-| `prj-dg-api-prod-shared` | `roles/logging.configWriter`, `roles/serviceusage.serviceUsageAdmin`, `roles/storage.admin`, `roles/secretmanager.admin`, `roles/run.admin`, `roles/iam.serviceAccountAdmin`, `roles/iam.serviceAccountUser`, `roles/resourcemanager.projectIamAdmin` (or `roles/owner`) |
+| `prj-dg-api-prod-shared` | `roles/logging.configWriter` (sink), `roles/storage.admin` (bucket), `roles/secretmanager.admin` (2 secrets), `roles/run.admin` (Cloud Run) — or `roles/owner`. No SA-admin / project-IAM-admin needed: `apis` and `service_accounts` are not managed here. |
 
 ---
 

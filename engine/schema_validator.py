@@ -38,7 +38,7 @@ RESOURCE_RULES: dict[str, dict] = {
     "kms": {"required": ["location", "keys"]},
     "pubsub": {"required": ["topic.name"]},
     "cloudtasks": {"required": ["location"]},
-    "cloudrun": {"required": ["location", "image.repository", "image.path", "image.tag", "service_account.name"]},
+    "cloudrun": {"required": ["location", "image.repository", "image.path", "image.tag"]},
     "load_balancer": {"required": ["region", "backend.type", "backend.service"]},
     "scheduler": {"required": ["location", "schedule", "http_target.uri"]},
     "workflows": {"required": ["region", "service_account", "source_contents"]},

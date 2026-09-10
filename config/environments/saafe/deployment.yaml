@@ -39,7 +39,11 @@ region:
 resources:
 
   apis:
-    enabled: true
+    # Disabled: prj-dg-api-prod-shared is an existing project with these
+    # services already enabled. Terraform does not manage them. If an apply
+    # ever fails with "API not enabled", enable it once with
+    # `gcloud services enable <api> --project prj-dg-api-prod-shared`.
+    enabled: false
     services:
       - iam.googleapis.com
       - cloudresourcemanager.googleapis.com
@@ -76,16 +80,14 @@ resources:
     instances: {}
 
   service_accounts:
+    # No platform-managed service account. prj-dg-api-prod-shared is an
+    # existing project; dg-api-backend-saafe runs as the project's default
+    # compute service account (see cloudrun below — no service_account set).
+    # Kept enabled: true with an empty map only because config/global/
+    # dependencies.yaml declares cloudrun -> service_accounts; an empty
+    # instances map creates nothing.
     enabled: true
-    instances:
-      cloudrun-sa:
-        account_id: cloudrun-service-account
-        display_name: Cloud Run Service Account
-        description: Service Account for the dg-api-backend-saafe Cloud Run service
-        roles:
-          - roles/secretmanager.secretAccessor
-          - roles/logging.logWriter
-          - roles/monitoring.metricWriter
+    instances: {}
 
   vm:
     enabled: false
@@ -94,21 +96,22 @@ resources:
   secrets:
     enabled: true
     instances:
-      # Both hold externally-issued credentials this platform doesn't
-      # generate (a private key, a MySQL connection string) — Terraform
-      # only creates the secret container + an initial random placeholder
-      # version (see modules/security/secrets/main.tf); set the real value
-      # via `gcloud secrets versions add <secret_id> --data-file=-` (or the
-      # console) after apply, then leave it alone — deletion_protection:
-      # true because unlike a generated password, this value can't be
-      # regenerated.
+      # manage_version: false => Terraform creates ONLY the empty secret
+      # container. No random placeholder version, no random_password. Add
+      # the real value after apply:
+      #   gcloud secrets versions add <secret_id> \
+      #     --project prj-dg-api-prod-shared --data-file=-
+      # deletion_protection: true because the value, once set, can't be
+      # regenerated. length/special are ignored while manage_version is false.
       dg-api-token-private-key-saafe:
         secret_id: dg-api-token-private-key-saafe
+        manage_version: false
         length: 44
         special: false
         deletion_protection: true
       dg-api-mysql-connection-saafe:
         secret_id: dg-api-mysql-connection-saafe
+        manage_version: false
         length: 44
         special: false
         deletion_protection: true
@@ -167,8 +170,9 @@ resources:
           repository: us-docker.pkg.dev
           path: cloudrun/container/hello
           tag: latest
-        service_account:
-          name: cloudrun-sa
+        # No service_account key: runs as prj-dg-api-prod-shared's default
+        # compute service account. Set service_account.email: <sa@...> here
+        # to pin an existing SA instead.
         scaling:
           min_instance_count: 0
           max_instance_count: 20

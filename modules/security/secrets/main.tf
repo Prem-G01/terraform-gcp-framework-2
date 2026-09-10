@@ -1,5 +1,17 @@
+# manage_version: false (per instance) => Terraform creates only the empty
+# secret container; the caller adds the real value out of band
+# (`gcloud secrets versions add ...`). Default true keeps the historical
+# behaviour: a generated random placeholder version so the secret is never
+# empty after apply.
+locals {
+  managed_version_secrets = {
+    for k, v in var.config.secrets : k => v
+    if lookup(v, "manage_version", true)
+  }
+}
+
 resource "random_password" "passwords" {
-  for_each = var.config.secrets
+  for_each = local.managed_version_secrets
   length   = each.value.length
   special  = each.value.special
 }
@@ -22,7 +34,7 @@ resource "google_secret_manager_secret" "secrets" {
 }
 
 resource "google_secret_manager_secret_version" "versions" {
-  for_each = var.config.secrets
+  for_each = local.managed_version_secrets
   secret = google_secret_manager_secret.secrets[
     each.key
   ].id

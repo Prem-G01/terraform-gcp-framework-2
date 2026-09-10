@@ -18,9 +18,15 @@ resource "google_cloud_run_v2_service" "cloudrun" {
   # to grant public invoker access at all before this.
 
   template {
-    service_account = var.service_accounts[
-      each.value.service_account.name
-    ]
+    # Optional. If service_account.name names a platform-created SA, use its
+    # email; else service_account.email is taken verbatim (an SA that already
+    # exists in the target project); else null — Cloud Run then runs as the
+    # project's default compute service account.
+    service_account = try(
+      var.service_accounts[each.value.service_account.name],
+      each.value.service_account.email,
+      null,
+    )
 
     # All three optional — nil (Terraform's `null`) leaves the provider's
     # own default in place, so existing configs that don't set these are
