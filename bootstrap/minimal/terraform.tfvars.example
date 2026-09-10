@@ -1,0 +1,21 @@
+# Copy to terraform.tfvars (gitignored) and apply:
+#
+#   cd bootstrap/minimal
+#   cp terraform.tfvars.example terraform.tfvars
+#   terraform init
+#   terraform apply
+#
+# Run once, as a human with:
+#   - on prj-dg-devops-test:      storage.admin + serviceusage.serviceUsageAdmin
+#   - on prj-dg-api-prod-shared:  logging.configWriter + serviceusage.serviceUsageAdmin
+
+hub_project_id   = "prj-dg-devops-test"
+spoke_project_id = "prj-dg-api-prod-shared"
+region           = "asia-south1"
+
+state_bucket_name    = "prj-dg-devops-test-tfstate-v5"
+artifact_bucket_name = "prj-dg-devops-test-tf-artifacts-v5"
+log_bucket_name      = "prj-dg-devops-test-tf-logs-v5"
+
+log_sink_name = "central-log-export-prod-shared"
+log_filter    = "" # export every log entry
