@@ -1,0 +1,32 @@
+# =============================================================================
+# bootstrap/grants/ for the saafe spoke — grants the centrally-created
+# tf-plan-saafe / tf-apply-saafe identities their curated roles INSIDE
+# prj-dg-api-prod-shared, and creates that project's log sink to the
+# central log bucket.
+#
+#   cd bootstrap/grants
+#   cp saafe.tfvars.example saafe.tfvars
+#   terraform init
+#   terraform apply -var-file=saafe.tfvars
+#
+# Run ONCE, by a human with resourcemanager.projectIamAdmin +
+# serviceusage.serviceUsageAdmin + logging.configWriter on
+# prj-dg-api-prod-shared. See docs/service-accounts.md "Cross-project
+# access" and docs/deploy-saafe.md.
+# =============================================================================
+
+# Where saafe's resources actually get created.
+spoke_project_id = "prj-dg-api-prod-shared"
+
+# Where tf-plan-saafe / tf-apply-saafe live (bootstrap's project_id).
+central_project_id = "prj-dg-devops-test"
+
+environment = "saafe"
+
+# Must match config/environments/saafe/deployment.yaml region.primary.
+region = "asia-south1"
+
+# Export this project's logs to the central bucket in prj-dg-devops-test.
+create_log_sink    = true
+central_log_bucket = "prj-dg-devops-test-tf-logs-v5"
+log_filter         = "" # every log entry

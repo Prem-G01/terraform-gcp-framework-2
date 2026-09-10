@@ -30,7 +30,7 @@ on:
         description: "Single environment to apply (leave blank to auto-detect from changed paths)"
         required: false
         type: choice
-        options: ["", dev, sit, uat, prod]
+        options: ["", dev, sit, uat, prod, saafe]
 
 permissions:
   contents: read
@@ -64,11 +64,11 @@ jobs:
           before="${{ github.event.before }}"
           after="${{ github.event.after }}"
           if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
-            envs='["dev","sit","uat","prod"]'
+            envs='["dev","sit","uat","prod","saafe"]'
           else
             changed=$(git diff --name-only "$before" "$after")
             if echo "$changed" | grep -qE '^(modules/|platform/|config/global/|config/schema/|engine/)'; then
-              envs='["dev","sit","uat","prod"]'
+              envs='["dev","sit","uat","prod","saafe"]'
             else
               envs=$(echo "$changed" \
                 | grep -oE '^config/environments/[a-z]+/' \
@@ -86,7 +86,7 @@ jobs:
       fail-fast: false
       matrix:
         env: ${{ fromJson(needs.detect-envs.outputs.envs) }}
-    # Each of dev/sit/uat/prod must exist as a GitHub Environment
+    # Each of dev/sit/uat/prod/saafe must exist as a GitHub Environment
     # (Settings > Environments) with required reviewers configured — that
     # protection rule is what gates this job on a human clicking Approve,
     # equivalent to Cloud Build's old --require-approval.

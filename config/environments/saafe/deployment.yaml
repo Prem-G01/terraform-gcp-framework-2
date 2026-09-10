@@ -1,0 +1,267 @@
+# =============================================================================
+# Deployment: saafe
+# -----------------------------------------------------------------------------
+# This is the ONLY file an engineer edits to change what gets deployed to
+# saafe. It is validated by `engine/cli.py validate config/environments/saafe`
+# before Terraform ever runs (see docs/validation.md). Fields not set here
+# fall back to config/global/defaults.yaml; org-wide policy (security,
+# naming, regions, dependencies) always comes from config/global/ and cannot
+# be overridden here.
+#
+# Unlike dev/sit/uat/prod, this environment is intentionally minimal: only
+# the bucket, secrets, and Cloud Run service requested for the "saafe"
+# project — every other resource type is left enabled: false with an empty
+# instances map so the platform creates nothing for it.
+#
+# Setting resources.<type>.enabled: false removes that resource type from
+# the plan entirely — nothing under `instances` is evaluated or created.
+# =============================================================================
+
+apiVersion: platform.gcp/v1
+kind: Deployment
+
+metadata:
+  name: application-platform
+  environment: saafe
+  owner: devops
+
+project:
+  # saafe is a SPOKE environment: its Terraform identities (tf-plan-saafe /
+  # tf-apply-saafe) live centrally in prj-dg-devops-test, but every resource
+  # below is created in this project. Roles for the central identities are
+  # granted here by a one-time `bootstrap/grants/` apply — see
+  # docs/service-accounts.md "Cross-project access".
+  id: prj-dg-api-prod-shared
+
+region:
+  primary: asia-south1   # Mumbai
+
+resources:
+
+  apis:
+    enabled: true
+    services:
+      - iam.googleapis.com
+      - cloudresourcemanager.googleapis.com
+      - logging.googleapis.com
+      - monitoring.googleapis.com
+      - secretmanager.googleapis.com
+      - storage.googleapis.com
+      - run.googleapis.com
+      - artifactregistry.googleapis.com
+      - cloudbuild.googleapis.com
+
+  vpc:
+    enabled: false
+    instances: {}
+
+  subnet:
+    enabled: false
+    instances: {}
+
+  firewall:
+    enabled: false
+    instances: {}
+
+  router:
+    enabled: false
+    instances: {}
+
+  nat:
+    enabled: false
+    instances: {}
+
+  private_service_access:
+    enabled: false
+    instances: {}
+
+  service_accounts:
+    enabled: true
+    instances:
+      cloudrun-sa:
+        account_id: cloudrun-service-account
+        display_name: Cloud Run Service Account
+        description: Service Account for the dg-api-backend-saafe Cloud Run service
+        roles:
+          - roles/secretmanager.secretAccessor
+          - roles/logging.logWriter
+          - roles/monitoring.metricWriter
+
+  vm:
+    enabled: false
+    instances: {}
+
+  secrets:
+    enabled: true
+    instances:
+      # Both hold externally-issued credentials this platform doesn't
+      # generate (a private key, a MySQL connection string) — Terraform
+      # only creates the secret container + an initial random placeholder
+      # version (see modules/security/secrets/main.tf); set the real value
+      # via `gcloud secrets versions add <secret_id> --data-file=-` (or the
+      # console) after apply, then leave it alone — deletion_protection:
+      # true because unlike a generated password, this value can't be
+      # regenerated.
+      dg-api-token-private-key-saafe:
+        secret_id: dg-api-token-private-key-saafe
+        length: 44
+        special: false
+        deletion_protection: true
+      dg-api-mysql-connection-saafe:
+        secret_id: dg-api-mysql-connection-saafe
+        length: 44
+        special: false
+        deletion_protection: true
+
+  cloudsql:
+    enabled: false
+    instances: {}
+
+  buckets:
+    enabled: true
+    instances:
+      dg-api-saafe:
+        name: dg-api-saafe
+        location: ASIA-SOUTH1
+        storage_class: STANDARD
+        force_destroy: false
+        versioning:
+          enabled: true
+        uniform_bucket_level_access: true
+        public_access_prevention: enforced
+        labels:
+          application: dg-api
+        lifecycle:
+          enabled: false
+
+  artifact_registry:
+    enabled: false
+    instances: {}
+
+  kms:
+    enabled: false
+    instances: {}
+
+  pubsub:
+    enabled: false
+    instances: {}
+
+  cloudtasks:
+    enabled: false
+    instances: {}
+
+  cloudrun:
+    enabled: true
+    instances:
+      dg-api-backend-saafe:
+        name: dg-api-backend-saafe
+        location: asia-south1
+        ingress: INGRESS_TRAFFIC_ALL
+        deletion_protection: true
+        allow_unauthenticated: false   # Auth: authenticated invokers only (no allUsers binding) — prod-shared project
+        concurrency: 10
+        timeout: "300s"
+        execution_environment: EXECUTION_ENVIRONMENT_GEN2
+        # Replace with the real dg-api-backend image before applying.
+        image:
+          repository: us-docker.pkg.dev
+          path: cloudrun/container/hello
+          tag: latest
+        service_account:
+          name: cloudrun-sa
+        scaling:
+          min_instance_count: 0
+          max_instance_count: 20
+        resources:
+          cpu: "1"
+          memory: "2Gi"
+          cpu_idle: true          # Billing: Request-based
+          startup_cpu_boost: false
+        env: {}
+        labels:
+          application: dg-api
+
+  load_balancer:
+    enabled: false
+    instances: {}
+
+  scheduler:
+    enabled: false
+    instances: {}
+
+  workflows:
+    enabled: false
+    instances: {}
+
+  notification_channels:
+    enabled: false
+    instances: {}
+
+  alert_policies:
+    enabled: false
+    instances: {}
+
+  uptime_checks:
+    enabled: false
+    instances: {}
+
+  logging:
+    enabled: false
+    instances: {}
+
+  bigquery:
+    enabled: false
+    instances: {}
+
+  documentai:
+    enabled: false
+    instances: {}
+
+  gke:
+    enabled: false
+    instances: {}
+
+  cloudfunctions:
+    enabled: false
+    instances: {}
+
+  memorystore:
+    enabled: false
+    instances: {}
+
+  vpc_service_controls:
+    enabled: false
+    organization_id: ""
+    create_access_policy: false
+    existing_access_policy_id: ""
+    instances: {}
+
+  org_policies:
+    # Disabled: org policies on prj-dg-api-prod-shared are managed at the
+    # org/folder level, not by this platform. roles/orgpolicy.policyAdmin
+    # also cannot be bound at project scope, so this block has never applied
+    # successfully — see docs/service-accounts.md "org_policies cannot work
+    # with this platform's current IAM model".
+    enabled: false
+    disable_service_account_key_creation: true
+    restrict_vm_external_ips: true
+    restrict_public_sql_ips: true
+    require_os_login: true
+    skip_default_network_creation: true
+    instances: {}
+
+  iap:
+    enabled: false
+    instances: {}
+
+  workload_identity:
+    enabled: false
+    instances: {}
+
+  binary_authorization:
+    enabled: false
+    evaluation_mode: ALWAYS_DENY
+    require_attestations_by: []
+    enforcement_mode: ENFORCED_BLOCK_AND_AUDIT_LOG
+    global_policy_evaluation_mode: ENABLE
+    instances: {}

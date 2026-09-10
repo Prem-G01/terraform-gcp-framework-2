@@ -30,7 +30,7 @@ variable "state_bucket_retention_days" {
 variable "environments" {
   description = "Environment names this bootstrap creates a dedicated tf-plan-<env>/tf-apply-<env> pair for (used for per-environment IAM conditions, not for creating environment resources — bootstrap never touches environments/)."
   type        = list(string)
-  default     = ["dev", "sit", "uat", "prod"]
+  default     = ["dev", "sit", "uat", "prod", "saafe"]
 }
 
 variable "home_environment" {

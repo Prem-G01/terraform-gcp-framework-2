@@ -34,7 +34,7 @@ on:
         description: "Single environment to plan (leave blank to auto-detect from changed paths)"
         required: false
         type: choice
-        options: ["", dev, sit, uat, prod]
+        options: ["", dev, sit, uat, prod, saafe]
 
 permissions:
   contents: read
@@ -69,7 +69,7 @@ jobs:
           head="${{ github.sha }}"
           changed=$(git diff --name-only "$base" "$head")
           if echo "$changed" | grep -qE '^(modules/|platform/|config/global/|config/schema/|engine/)'; then
-            envs='["dev","sit","uat","prod"]'
+            envs='["dev","sit","uat","prod","saafe"]'
           else
             envs=$(echo "$changed" \
               | grep -oE '^config/environments/[a-z]+/' \

@@ -38,7 +38,8 @@
             "dev",
             "sit",
             "uat",
-            "prod"
+            "prod",
+            "saafe"
           ]
         },
         "owner": {

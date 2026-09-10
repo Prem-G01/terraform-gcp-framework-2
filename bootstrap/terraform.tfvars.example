@@ -1,0 +1,46 @@
+# =============================================================================
+# bootstrap/ variables — copy to terraform.tfvars (gitignored) and apply:
+#
+#   cd bootstrap
+#   cp terraform.tfvars.example terraform.tfvars
+#   terraform init
+#   terraform apply
+#
+# Run ONCE, by a human with org/project-level IAM on prj-dg-devops-test.
+# These values are NOT secret (project ids, bucket names, a repo slug) —
+# the file is .example-tracked on purpose. The real terraform.tfvars is
+# gitignored only so per-org copies don't collide in git.
+# =============================================================================
+
+# The hub project. Hosts the state/artifact/log buckets, every
+# tf-plan-<env>/tf-apply-<env> identity, and the WIF pool.
+project_id = "prj-dg-devops-test"
+
+region = "asia-south1"
+
+# Globally-unique GCS bucket names — verified free 2026-09-09
+# (gcloud storage buckets describe -> 404 for all three).
+state_bucket_name    = "prj-dg-devops-test-tfstate-v5"
+artifact_bucket_name = "prj-dg-devops-test-tf-artifacts-v5"
+log_bucket_name      = "prj-dg-devops-test-tf-logs-v5"
+
+# One dedicated tf-plan-<env>/tf-apply-<env> pair is created per entry.
+environments = ["dev", "sit", "uat", "prod", "saafe"]
+
+# The one environment whose real GCP project IS project_id above — its
+# pair gets project-level roles granted directly by this stack. saafe is
+# NOT home: it gets its roles from bootstrap/grants/ against
+# prj-dg-api-prod-shared instead.
+home_environment = "dev"
+
+# Workload Identity Federation for GitHub Actions — no SA JSON keys.
+enable_workload_identity_federation = true
+github_repository                   = "Prem-G01/terraform-gcp-framework-2"
+
+# Centralized logging: filled in on the SECOND bootstrap apply, after
+# bootstrap/grants/ for saafe has run and printed its
+# log_sink_writer_identity output. First apply: leave empty.
+log_sink_writer_identities = {}
+# log_sink_writer_identities = {
+#   saafe = "serviceAccount:service-<PRJ_NUM>@gcp-sa-logging.iam.gserviceaccount.com"
+# }

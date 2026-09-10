@@ -67,13 +67,11 @@ resource "google_storage_bucket" "state" {
   storage_class               = "STANDARD"
   uniform_bucket_level_access = true
   public_access_prevention    = "enforced"
-  # TEMP (2026-08-25): flipped true for a full, explicitly-requested
-  # teardown of everything this session deployed, including bootstrap
-  # itself. This bucket holds real per-environment state files
-  # (dev/default.tfstate, sit/default.tfstate) that must be force-deleted
-  # along with the bucket -- GCS refuses to delete a non-empty bucket
-  # otherwise. Revert to false if bootstrap is ever recreated for real use.
-  force_destroy = true
+  # Holds real per-environment state files -- must never be force-deleted
+  # by a routine `terraform destroy`. The 2026-08-25 teardown flipped this
+  # true temporarily; reverted to false now that bootstrap is being
+  # recreated for real use.
+  force_destroy = false
 
   versioning {
     enabled = true
@@ -106,9 +104,9 @@ resource "google_storage_bucket" "artifacts" {
   storage_class               = "STANDARD"
   uniform_bucket_level_access = true
   public_access_prevention    = "enforced"
-  # TEMP (2026-08-25): see google_storage_bucket.state's comment above --
-  # same full-teardown reason. Revert to false if bootstrap is recreated.
-  force_destroy = true
+  # Reverted to false now that bootstrap is being recreated for real use
+  # (was temporarily true for the 2026-08-25 teardown).
+  force_destroy = false
 
   lifecycle_rule {
     condition {
@@ -140,11 +138,10 @@ resource "google_storage_bucket" "logs" {
   storage_class               = "STANDARD"
   uniform_bucket_level_access = true
   public_access_prevention    = "enforced"
-  # TEMP (2026-08-25): see google_storage_bucket.state's comment above --
-  # same full-teardown reason. This bucket holds real exported log data
-  # (GCEGuestAgent logs from the sit VM). Revert to false if bootstrap is
-  # recreated.
-  force_destroy = true
+  # Holds real exported log data -- reverted to false now that bootstrap is
+  # being recreated for real use (was temporarily true for the 2026-08-25
+  # teardown).
+  force_destroy = false
 
   lifecycle_rule {
     condition {

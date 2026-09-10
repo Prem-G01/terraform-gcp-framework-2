@@ -22,6 +22,16 @@ resource "google_cloud_run_v2_service" "cloudrun" {
       each.value.service_account.name
     ]
 
+    # All three optional — nil (Terraform's `null`) leaves the provider's
+    # own default in place, so existing configs that don't set these are
+    # unaffected. concurrency: max_instance_request_concurrency (default
+    # 80). timeout: max request duration, e.g. "300s" (default "300s").
+    # execution_environment: EXECUTION_ENVIRONMENT_GEN1 (default) or
+    # _GEN2.
+    max_instance_request_concurrency = lookup(each.value, "concurrency", null)
+    timeout                          = lookup(each.value, "timeout", null)
+    execution_environment            = lookup(each.value, "execution_environment", null)
+
     scaling {
       min_instance_count = each.value.scaling.min_instance_count
       max_instance_count = each.value.scaling.max_instance_count
@@ -40,7 +50,12 @@ resource "google_cloud_run_v2_service" "cloudrun" {
           cpu    = each.value.resources.cpu
           memory = each.value.resources.memory
         }
-
+        # cpu_idle true (default) = CPU allocated only while handling a
+        # request ("Request-based" billing in the console); false =
+        # always allocated ("Instance-based"). startup_cpu_boost false
+        # is the provider default.
+        cpu_idle          = lookup(each.value.resources, "cpu_idle", null)
+        startup_cpu_boost = lookup(each.value.resources, "startup_cpu_boost", null)
       }
       dynamic "env" {
 
