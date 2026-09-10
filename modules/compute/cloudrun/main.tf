@@ -7,6 +7,19 @@ resource "google_cloud_run_v2_service" "cloudrun" {
   deletion_protection = lookup(each.value, "deletion_protection", true)
   labels              = each.value.labels
 
+  # Service-level scaling — the ceiling across ALL revisions (the console's
+  # "Service scaling", which otherwise defaults to 100). Defaults to the
+  # revision-level scaling.max_instance_count so a single value caps both;
+  # set scaling.service_max_instance_count to raise the service ceiling
+  # above any one revision's limit.
+  scaling {
+    max_instance_count = lookup(
+      each.value.scaling,
+      "service_max_instance_count",
+      each.value.scaling.max_instance_count,
+    )
+  }
+
   # `ingress` above only controls which *network paths* can reach this
   # service (INGRESS_TRAFFIC_ALL still lets a fronting load_balancer or
   # a direct request in) — it does NOT grant IAM authorization. Cloud Run
