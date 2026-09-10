@@ -107,14 +107,14 @@ resources:
       # works without a manual edit each time. Set back to true before the
       # real deployment — a real externally-issued key/connection string
       # can't be regenerated once lost.
-      dg-api-token-private-key-saafe:
-        secret_id: dg-api-token-private-key-saafe
+      dg-api-token-private-key-saafe-1:
+        secret_id: dg-api-token-private-key-saafe-1
         manage_version: false
         length: 44
         special: false
         deletion_protection: false
-      dg-api-mysql-connection-saafe:
-        secret_id: dg-api-mysql-connection-saafe
+      dg-api-mysql-connection-saafe-1:
+        secret_id: dg-api-mysql-connection-saafe-1
         manage_version: false
         length: 44
         special: false
@@ -128,7 +128,7 @@ resources:
     enabled: true
     instances:
       dg-api-saafe:
-        name: dg-api-saafe
+        name: dg-api-saafe-1
         location: ASIA-SOUTH1
         storage_class: STANDARD
         force_destroy: false
@@ -161,7 +161,7 @@ resources:
     enabled: true
     instances:
       dg-api-backend-saafe:
-        name: dg-api-backend-saafe
+        name: dg-api-backend-saafe-1
         location: asia-south1
         ingress: INGRESS_TRAFFIC_ALL
         deletion_protection: false   # TEST CYCLE — set true before the real deployment
