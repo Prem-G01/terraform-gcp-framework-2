@@ -133,7 +133,7 @@ resources:
         storage_class: STANDARD
         force_destroy: false
         versioning:
-          enabled: true
+          enabled: false
         uniform_bucket_level_access: true
         public_access_prevention: enforced
         labels:
