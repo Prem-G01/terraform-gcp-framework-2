@@ -1,8 +1,8 @@
-# Two providers: the default one targets the hub project (buckets), the
-# aliased "spoke" one targets the project whose logs are being exported
-# (the log sink + its API live there). Both run as the human operator's
-# Application Default Credentials — there is no deploy service account in
-# this model.
+# Two providers: the default one targets the hub project (buckets); the
+# aliased "logsource" one targets whichever project's logs are exported
+# (var.log_source_project_id, default = the spoke project). Both run as the
+# human operator's Application Default Credentials — there is no deploy
+# service account in this model.
 
 provider "google" {
   project = var.hub_project_id
@@ -15,10 +15,10 @@ provider "google" {
 }
 
 provider "google" {
-  alias   = "spoke"
-  project = var.spoke_project_id
+  alias   = "logsource"
+  project = local.log_source_project_id
   region  = var.region
 
   user_project_override = true
-  billing_project       = var.spoke_project_id
+  billing_project       = local.log_source_project_id
 }

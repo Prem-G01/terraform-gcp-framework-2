@@ -4,8 +4,20 @@ variable "hub_project_id" {
 }
 
 variable "spoke_project_id" {
-  description = "Project whose Cloud Logging is exported to the hub log bucket (where the saafe resources are deployed). A log sink and the logging API are created here."
+  description = "Project where the saafe resources are deployed. Default source for the log export unless log_source_project_id overrides it."
   type        = string
+}
+
+variable "create_log_sink" {
+  description = "Create the cross-project log export (sink + logging API + bucket IAM). Set false if you don't yet have roles/logging.configWriter on the source project — the three buckets still get created."
+  type        = bool
+  default     = true
+}
+
+variable "log_source_project_id" {
+  description = "Project whose logs are exported to the hub log bucket. Empty string = use spoke_project_id. Set to hub_project_id to test the export end-to-end from a project you already control."
+  type        = string
+  default     = ""
 }
 
 variable "region" {

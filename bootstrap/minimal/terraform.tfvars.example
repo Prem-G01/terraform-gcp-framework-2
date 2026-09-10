@@ -6,8 +6,9 @@
 #   terraform apply
 #
 # Run once, as a human with:
-#   - on prj-dg-devops-test:      storage.admin + serviceusage.serviceUsageAdmin
-#   - on prj-dg-api-prod-shared:  logging.configWriter + serviceusage.serviceUsageAdmin
+#   - on prj-dg-devops-test:  storage.admin + serviceusage.serviceUsageAdmin
+#   - on the log source project (see below): logging.configWriter +
+#     serviceusage.serviceUsageAdmin
 
 hub_project_id   = "prj-dg-devops-test"
 spoke_project_id = "prj-dg-api-prod-shared"
@@ -17,5 +18,15 @@ state_bucket_name    = "prj-dg-devops-test-tfstate-v5"
 artifact_bucket_name = "prj-dg-devops-test-tf-artifacts-v5"
 log_bucket_name      = "prj-dg-devops-test-tf-logs-v5"
 
-log_sink_name = "central-log-export-prod-shared"
+# --- Log export ---------------------------------------------------------
+# create_log_sink   : set false if you don't have logging.configWriter on
+#                     the source project yet — buckets still get created.
+# log_source_project_id : whose logs to export. "" = spoke_project_id
+#                     (prj-dg-api-prod-shared, the real target). Set to
+#                     "prj-dg-devops-test" to test the export end-to-end
+#                     from a project you already control.
+create_log_sink       = true
+log_source_project_id = "prj-dg-devops-test"
+
+log_sink_name = "central-log-export"
 log_filter    = "" # export every log entry

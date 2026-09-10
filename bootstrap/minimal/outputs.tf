@@ -15,7 +15,12 @@ output "state_backend_config_hint" {
   value       = "terraform init -backend-config=\"bucket=${google_storage_bucket.state.name}\" -backend-config=\"prefix=<env>\""
 }
 
-output "spoke_log_sink_writer_identity" {
-  description = "The identity the spoke sink writes as — already granted objectCreator on the log bucket by this stack."
-  value       = google_logging_project_sink.spoke_export.writer_identity
+output "log_sink_source_project" {
+  description = "Which project's logs are being exported (null if create_log_sink = false)."
+  value       = var.create_log_sink ? local.log_source_project_id : null
+}
+
+output "log_sink_writer_identity" {
+  description = "The identity the sink writes as — already granted objectCreator on the log bucket by this stack. null if create_log_sink = false."
+  value       = var.create_log_sink ? google_logging_project_sink.export[0].writer_identity : null
 }

@@ -14,6 +14,9 @@ locals {
     "serviceusage.googleapis.com",
     "cloudresourcemanager.googleapis.com",
   ]
+
+  log_source_project_id = var.log_source_project_id != "" ? var.log_source_project_id : var.spoke_project_id
+  log_sink_count        = var.create_log_sink ? 1 : 0
 }
 
 resource "google_project_service" "hub" {
@@ -111,30 +114,34 @@ resource "google_storage_bucket" "logs" {
   depends_on = [google_project_service.hub]
 }
 
-resource "google_project_service" "spoke_logging" {
-  provider = google.spoke
+resource "google_project_service" "logsource_logging" {
+  provider = google.logsource
+  count    = local.log_sink_count
 
-  project            = var.spoke_project_id
+  project            = local.log_source_project_id
   service            = "logging.googleapis.com"
   disable_on_destroy = false
 }
 
-resource "google_logging_project_sink" "spoke_export" {
-  provider = google.spoke
+resource "google_logging_project_sink" "export" {
+  provider = google.logsource
+  count    = local.log_sink_count
 
-  project                = var.spoke_project_id
+  project                = local.log_source_project_id
   name                   = var.log_sink_name
   destination            = "storage.googleapis.com/${google_storage_bucket.logs.name}"
   filter                 = var.log_filter
   unique_writer_identity = true
 
-  depends_on = [google_project_service.spoke_logging]
+  depends_on = [google_project_service.logsource_logging]
 }
 
 # The sink writes as a Google-managed identity that only exists after the
 # sink is created — grant it write access to the log bucket here.
-resource "google_storage_bucket_iam_member" "spoke_sink_writes_logs" {
+resource "google_storage_bucket_iam_member" "sink_writes_logs" {
+  count = local.log_sink_count
+
   bucket = google_storage_bucket.logs.name
   role   = "roles/storage.objectCreator"
-  member = google_logging_project_sink.spoke_export.writer_identity
+  member = google_logging_project_sink.export[0].writer_identity
 }
