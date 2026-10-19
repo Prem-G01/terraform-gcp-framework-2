@@ -223,3 +223,10 @@ To finish GitHub setup:
 If restoring bootstrap state on another workstation, download the protected
 backup into `bootstrap/callgenie/terraform.tfstate` before planning updates. Do
 not apply this bootstrap again with an empty state while its resources exist.
+
+GitHub federation uses the actual repository OIDC `sub_claim_prefix`, which may
+include immutable owner/repository IDs. Retrieve it with
+`gh api repos/Prem-G01/terraform-gcp-framework-2/actions/oidc/customization/sub`
+and keep `github_subject_prefix` in the isolated bootstrap variables aligned.
+The provider checks this prefix for both plan and apply identities and enforces
+`main` for the Callgenie deployment subject.
