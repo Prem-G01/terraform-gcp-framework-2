@@ -25,11 +25,11 @@ dependencies:
   private_service_access:
     requires: [vpc]
   vm:
-    requires: [subnet, service_accounts]
+    requires: [subnet]
   cloudsql:
     requires: [vpc, private_service_access, secrets]
   cloudrun:
-    requires: [service_accounts]
+    requires: []
   load_balancer:
     requires: [cloudrun]
   scheduler:

@@ -23,6 +23,10 @@ output "cloudsql_private_ips" {
   value = try(module.cloudsql[0].private_ips, {})
 }
 
+output "firestore_database_ids" {
+  value = try(module.firestore[0].database_ids, {})
+}
+
 output "bucket_names" {
   value = try(module.buckets[0].bucket_names, {})
 }

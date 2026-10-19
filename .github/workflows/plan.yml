@@ -28,13 +28,16 @@ on:
       - "modules/**"
       - "platform/**"
       - "engine/**"
+      - "environments/**"
+      - "scripts/startup/**"
+      - ".github/workflows/**"
   workflow_dispatch:
     inputs:
       environment:
         description: "Single environment to plan (leave blank to auto-detect from changed paths)"
         required: false
         type: choice
-        options: ["", dev, sit, uat, prod, saafe]
+        options: ["", dev, sit, uat, prod, saafe, callgenie]
 
 permissions:
   contents: read
@@ -68,12 +71,12 @@ jobs:
           base="${{ github.event.pull_request.base.sha }}"
           head="${{ github.sha }}"
           changed=$(git diff --name-only "$base" "$head")
-          if echo "$changed" | grep -qE '^(modules/|platform/|config/global/|config/schema/|engine/)'; then
-            envs='["dev","sit","uat","prod","saafe"]'
+          if echo "$changed" | grep -qE '^(modules/|platform/|config/global/|config/schema/|engine/|\.github/workflows/)'; then
+            envs='["dev","sit","uat","prod","saafe","callgenie"]'
           else
             envs=$(echo "$changed" \
-              | grep -oE '^config/environments/[a-z]+/' \
-              | sed -E 's#config/environments/([a-z]+)/#\1#' \
+              | grep -oE '^(config/environments|environments)/[a-z]+/|^scripts/startup/' \
+              | sed -E 's#^(config/environments|environments)/([a-z]+)/#\2#; s#^scripts/startup/$#callgenie#' \
               | sort -u | jq -R . | jq -sc .)
           fi
           echo "envs=$envs" >> "$GITHUB_OUTPUT"
@@ -100,18 +103,11 @@ jobs:
 
       # 1. Validation — schema, dependency, security, naming, region, cost.
       #    Blocks here on any ERROR-severity finding (see docs/validation.md).
-      - name: Validate
+      - name: Validate and render
         run: |
           set -euo pipefail
           pip install -q -r engine/requirements.txt
-          python -m engine.cli validate "config/environments/${{ matrix.env }}" --json | tee validation.json
-          python -c "import json,sys; sys.exit(1 if json.load(open('validation.json'))['blocked'] else 0)"
-
-      # 2. Render — writes the validated, normalized deployment.json.
-      - name: Render
-        run: |
-          python -m engine.cli render "config/environments/${{ matrix.env }}" \
-            --out "environments/${{ matrix.env }}/.generated/deployment.normalized.json"
+          python -m engine.ci_prepare "${{ matrix.env }}"
 
       # 3. Hard-code scan — modules/, platform/, bootstrap/ must stay
       #    environment-agnostic.

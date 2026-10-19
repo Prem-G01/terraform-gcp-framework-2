@@ -31,6 +31,19 @@ resource "google_cloud_run_v2_service" "cloudrun" {
   # to grant public invoker access at all before this.
 
   template {
+    dynamic "vpc_access" {
+      for_each = try(each.value.vpc_access, null) == null ? [] : [each.value.vpc_access]
+
+      content {
+        egress = lookup(vpc_access.value, "egress", "PRIVATE_RANGES_ONLY")
+        network_interfaces {
+          network    = var.vpcs[vpc_access.value.network]
+          subnetwork = var.subnets[vpc_access.value.subnet]
+          tags       = lookup(vpc_access.value, "tags", [])
+        }
+      }
+    }
+
     # Optional. If service_account.name names a platform-created SA, use its
     # email; else service_account.email is taken verbatim (an SA that already
     # exists in the target project); else null — Cloud Run then runs as the

@@ -1,3 +1,19 @@
+# Reserve an internal address only when the deployment requests one.
+resource "google_compute_address" "internal" {
+  for_each = {
+    for key, vm in var.config.vms : key => vm
+    if try(vm.network.internal_ip, null) != null
+  }
+
+  project      = var.project_id
+  name         = lookup(each.value, "name", lookup(var.generated_names, each.key, each.key))
+  region       = regex("^(.*)-[a-z]$", each.value.zone)[0]
+  address_type = "INTERNAL"
+  purpose      = "GCE_ENDPOINT"
+  subnetwork   = var.subnets[each.value.subnet]
+  address      = each.value.network.internal_ip
+}
+
 resource "google_compute_instance" "vm" {
   for_each     = var.config.vms
   project      = var.project_id
@@ -6,7 +22,14 @@ resource "google_compute_instance" "vm" {
   machine_type = each.value.machine_type
   tags         = each.value.tags
   labels       = each.value.labels
-  metadata     = each.value.metadata
+  # startup_script_file is relative to this framework's repository root.
+  # Metadata updates do not force VM replacement; rerun the guest script to apply.
+  metadata = merge(
+    each.value.metadata,
+    try(each.value.startup_script_file, null) == null ? {} : {
+      "startup-script" = replace(file("${path.module}/../../../${each.value.startup_script_file}"), "\r\n", "\n")
+    },
+  )
 
   boot_disk {
     initialize_params {
@@ -17,6 +40,7 @@ resource "google_compute_instance" "vm" {
   }
 
   network_interface {
+    network_ip = try(google_compute_address.internal[each.key].address, null)
     subnetwork = var.subnets[
       each.value.subnet
     ]
@@ -33,11 +57,13 @@ resource "google_compute_instance" "vm" {
     }
   }
 
-  service_account {
-    email = var.service_accounts[
-      each.value.service_account.name
-    ]
-    scopes = each.value.service_account.scopes
+  # Explicit opt-out leaves the VM without an attached service account.
+  dynamic "service_account" {
+    for_each = try(each.value.service_account.enabled, true) ? [each.value.service_account] : []
+    content {
+      email  = var.service_accounts[service_account.value.name]
+      scopes = service_account.value.scopes
+    }
   }
 
   # Secure-by-default fallbacks matching

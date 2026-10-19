@@ -39,7 +39,8 @@
             "sit",
             "uat",
             "prod",
-            "saafe"
+            "saafe",
+            "callgenie"
           ]
         },
         "owner": {
@@ -195,6 +196,9 @@
         },
         "binary_authorization": {
           "$ref": "#/definitions/binaryAuthorizationBlock"
+        },
+        "firestore": {
+          "$ref": "#/definitions/resourceBlock"
         }
       }
     }

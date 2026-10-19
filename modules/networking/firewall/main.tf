@@ -56,6 +56,8 @@ resource "google_compute_firewall" "firewall" {
 
 
 
+  source_tags = lookup(each.value, "source_tags", null)
+
   target_tags = lookup(
 
     each.value,

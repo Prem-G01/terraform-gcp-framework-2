@@ -1,0 +1,394 @@
+# CallGenie Dev Requirements-v1.xlsx plus operator decisions.
+# Target project: prj-dg-cl-apps-dev. Access grants remain manual.
+# See docs/deploy-callgenie.md for defaults, limitations, and deployment steps.
+
+apiVersion: platform.gcp/v1
+kind: Deployment
+metadata:
+  name: callgenie-dev
+  environment: callgenie
+  owner: devops
+project:
+  id: prj-dg-cl-apps-dev
+region:
+  primary: asia-south1
+resources:
+  apis:
+    enabled: true
+    services:
+    - serviceusage.googleapis.com
+    - compute.googleapis.com
+    - iam.googleapis.com
+    - cloudresourcemanager.googleapis.com
+    - logging.googleapis.com
+    - monitoring.googleapis.com
+    - sqladmin.googleapis.com
+    - secretmanager.googleapis.com
+    - storage.googleapis.com
+    - artifactregistry.googleapis.com
+    - run.googleapis.com
+    - servicenetworking.googleapis.com
+    - iap.googleapis.com
+    - oslogin.googleapis.com
+    - firestore.googleapis.com
+    - aiplatform.googleapis.com
+  vpc:
+    enabled: true
+    instances:
+      callgenie-dev-vpc:
+        description: CallGenie private application network
+        auto_create_subnetworks: false
+        routing_mode: GLOBAL
+        delete_default_routes_on_create: true
+        create_default_internet_route: true
+        mtu: 1460
+  subnet:
+    enabled: true
+    instances:
+      callgenie-dev-private-subnet:
+        vpc: callgenie-dev-vpc
+        region: '{region}'
+        cidr: 10.50.1.0/24
+        description: Private CallGenie VMs
+        private_ip_google_access: true
+        flow_logs:
+          enabled: true
+          aggregation_interval: INTERVAL_5_SEC
+          flow_sampling: 0.5
+          metadata: INCLUDE_ALL_METADATA
+      callgenie-dev-public-subnet:
+        vpc: callgenie-dev-vpc
+        region: '{region}'
+        cidr: 10.50.2.0/24
+        description: Cloud Run Direct VPC egress
+        private_ip_google_access: true
+        flow_logs:
+          enabled: true
+          aggregation_interval: INTERVAL_5_SEC
+          flow_sampling: 0.5
+          metadata: INCLUDE_ALL_METADATA
+  firewall:
+    enabled: true
+    instances:
+      callgenie-allow-iap-ssh:
+        network: callgenie-dev-vpc
+        direction: INGRESS
+        priority: 1000
+        source_ranges:
+        - 35.235.240.0/20
+        target_tags:
+        - callgenie-dev-iap-ssh
+        allow:
+        - protocol: tcp
+          ports:
+          - '22'
+      callgenie-allow-app-redis:
+        network: callgenie-dev-vpc
+        direction: INGRESS
+        priority: 1000
+        source_tags:
+        - callgenie-dev-redis-client
+        target_tags:
+        - callgenie-dev-redis-server
+        allow:
+        - protocol: tcp
+          ports:
+          - '6379'
+      callgenie-allow-run-redis:
+        network: callgenie-dev-vpc
+        direction: INGRESS
+        priority: 1000
+        source_ranges:
+        - 10.50.2.0/24
+        target_tags:
+        - callgenie-dev-redis-server
+        allow:
+        - protocol: tcp
+          ports:
+          - '6379'
+  router:
+    enabled: false
+    instances:
+      callgenie-router:
+        region: '{region}'
+        network: callgenie-dev-vpc
+        description: Outbound routing for CallGenie private workloads
+        bgp:
+          asn: 64514
+          advertise_mode: DEFAULT
+  nat:
+    enabled: false
+    instances:
+      callgenie-nat:
+        region: '{region}'
+        router: callgenie-router
+        nat_ip_allocate_option: AUTO_ONLY
+        source_subnetwork_ip_ranges_to_nat: ALL_SUBNETWORKS_ALL_IP_RANGES
+        enable_endpoint_independent_mapping: true
+        min_ports_per_vm: 64
+        log_config:
+          enable: true
+          filter: ERRORS_ONLY
+  private_service_access:
+    enabled: true
+    instances:
+      callgenie-sql-psa:
+        network: callgenie-dev-vpc
+        address:
+          name: callgenie-sql-private-range
+          purpose: VPC_PEERING
+          address_type: INTERNAL
+          prefix_length: 16
+        service: servicenetworking.googleapis.com
+  service_accounts:
+    enabled: false
+    instances: {}
+  vm:
+    enabled: true
+    instances:
+      dg-lk-server-vm:
+        name: dg-lk-server-vm
+        zone: '{region}-a'
+        machine_type: n2-standard-2
+        subnet: callgenie-dev-private-subnet
+        service_account:
+          enabled: false
+        boot_disk:
+          image: projects/ubuntu-os-cloud/global/images/family/ubuntu-2404-lts-amd64
+          size_gb: 100
+          type: pd-balanced
+        network:
+          public_ip: false
+        shielded_vm:
+          secure_boot: true
+          vtpm: true
+          integrity_monitoring: true
+        metadata:
+          enable-oslogin: 'TRUE'
+          block-project-ssh-keys: 'TRUE'
+          disable-legacy-endpoints: 'TRUE'
+        tags:
+        - callgenie-dev-iap-ssh
+        - callgenie-dev-redis-client
+        - callgenie-dev-live-server
+        labels:
+          application: callgenie
+          environment: dev
+          owner: devops
+          managed_by: terraform
+          component: live-server
+          tier: application
+      dg-cl-vm:
+        name: dg-cl-vm
+        zone: '{region}-a'
+        machine_type: n2-standard-2
+        subnet: callgenie-dev-private-subnet
+        service_account:
+          enabled: false
+        boot_disk:
+          image: projects/ubuntu-os-cloud/global/images/family/ubuntu-2404-lts-amd64
+          size_gb: 70
+          type: pd-balanced
+        network:
+          public_ip: false
+        shielded_vm:
+          secure_boot: true
+          vtpm: true
+          integrity_monitoring: true
+        metadata:
+          enable-oslogin: 'TRUE'
+          block-project-ssh-keys: 'TRUE'
+          disable-legacy-endpoints: 'TRUE'
+        tags:
+        - callgenie-dev-iap-ssh
+        - callgenie-dev-redis-client
+        - callgenie-dev-application-server
+        labels:
+          application: callgenie
+          environment: dev
+          owner: devops
+          managed_by: terraform
+          component: application-server
+          tier: application
+      dg-cg-redis-vm:
+        name: dg-cg-redis-vm
+        startup_script_file: scripts/startup/redis.sh
+        zone: '{region}-a'
+        machine_type: e2-custom-small-1024
+        subnet: callgenie-dev-private-subnet
+        service_account:
+          enabled: false
+        boot_disk:
+          image: projects/debian-cloud/global/images/family/debian-12
+          size_gb: 10
+          type: pd-balanced
+        network:
+          # Outbound package downloads without NAT; Redis stays bound to private IP.
+          public_ip: true
+          internal_ip: 10.50.1.10
+        shielded_vm:
+          secure_boot: true
+          vtpm: true
+          integrity_monitoring: true
+        metadata:
+          enable-oslogin: 'TRUE'
+          block-project-ssh-keys: 'TRUE'
+          disable-legacy-endpoints: 'TRUE'
+        tags:
+        - callgenie-dev-iap-ssh
+        - callgenie-dev-redis-server
+        labels:
+          application: callgenie
+          environment: dev
+          owner: devops
+          managed_by: terraform
+          component: redis-cache
+          tier: cache
+  secrets:
+    enabled: true
+    instances:
+      dg-api-token-private-key-cl:
+        secret_id: dg-api-token-private-key-cl
+        manage_version: false
+        length: 44
+        special: false
+        deletion_protection: true
+      dg-api-mysql-connection-cl:
+        secret_id: dg-api-mysql-connection-cl
+        manage_version: false
+        length: 44
+        special: false
+        deletion_protection: true
+  cloudsql:
+    enabled: true
+    instances:
+      dg-api-csql:
+        name: dg-api-csql
+        region: '{region}'
+        database_version: MYSQL_8_4
+        edition: ENTERPRISE
+        tier: db-custom-1-3840
+        availability_type: REGIONAL
+        auto_upgrade_enabled: false
+        retain_backups_on_delete: false
+        deletion_protection: true
+        disk:
+          size: 20
+          type: PD_SSD
+          autoresize: true
+        backup:
+          enabled: true
+          start_time: 00:00
+          binary_log_enabled: true
+          transaction_log_retention_days: 7
+        network:
+          private_network: callgenie-dev-vpc
+          ipv4_enabled: false
+          ssl_mode: ENCRYPTED_ONLY
+        insights:
+          query_insights_enabled: false
+          query_string_length: 1024
+          record_application_tags: false
+          record_client_address: false
+        users: {}
+        deletion_protection_enabled: true
+  buckets:
+    enabled: true
+    instances:
+      dg-cl-dev:
+        name: dg-cl-dev
+        location: ASIA-SOUTH1
+        storage_class: STANDARD
+        force_destroy: false
+        versioning:
+          enabled: false
+        uniform_bucket_level_access: true
+        public_access_prevention: enforced
+        lifecycle:
+          enabled: false
+        labels:
+          application: callgenie
+          environment: dev
+          owner: devops
+          managed_by: terraform
+          component: application-storage
+          tier: storage
+  artifact_registry:
+    enabled: true
+    instances:
+      dg-api:
+        repository_id: dg-api
+        format: DOCKER
+        location: '{region}'
+        description: CallGenie application images
+        mode: STANDARD_REPOSITORY
+        immutable_tags: false
+        cleanup_policy_dry_run: true
+        cleanup_policy:
+          enabled: false
+        labels:
+          application: callgenie
+          environment: dev
+          owner: devops
+          managed_by: terraform
+          component: container-images
+          tier: build
+  firestore:
+    enabled: true
+    instances:
+      default-db:
+        database_id: (default)
+        location: '{region}'
+        database_edition: STANDARD
+        type: FIRESTORE_NATIVE
+        point_in_time_recovery_enablement: POINT_IN_TIME_RECOVERY_DISABLED
+        delete_protection_state: DELETE_PROTECTION_ENABLED
+        deletion_policy: DELETE
+  cloudrun:
+    enabled: true
+    instances:
+      dg-api-backend-cl:
+        name: dg-api-backend-cl
+        location: '{region}'
+        ingress: INGRESS_TRAFFIC_ALL
+        allow_unauthenticated: false
+        deletion_protection: true
+        concurrency: 10
+        timeout: 300s
+        execution_environment: EXECUTION_ENVIRONMENT_GEN2
+        image:
+          repository: us-docker.pkg.dev
+          path: cloudrun/container/hello
+          tag: latest
+        scaling:
+          min_instance_count: 0
+          max_instance_count: 20
+        resources:
+          cpu: '1'
+          memory: 2Gi
+          cpu_idle: true
+          startup_cpu_boost: false
+        vpc_access:
+          network: callgenie-dev-vpc
+          subnet: callgenie-dev-public-subnet
+          egress: ALL_TRAFFIC
+        env: {}
+        labels:
+          application: callgenie
+          environment: dev
+          owner: devops
+          managed_by: terraform
+          component: backend-api
+          tier: application
+  iap:
+    enabled: true
+    instances:
+      dg-lk-server-vm:
+        target_vm: dg-lk-server-vm
+        members: []
+      dg-cl-vm:
+        target_vm: dg-cl-vm
+        members: []
+      dg-cg-redis-vm:
+        target_vm: dg-cg-redis-vm
+        members: []

@@ -102,7 +102,7 @@ run "iap_binding_resolves_to_the_real_vm" {
   }
 
   assert {
-    condition     = output.iap_bindings["admin-access-group:platform-admins@example.com"].target_vm == "app-vm-01"
+    condition     = output.iap_bindings["admin-access-group:platform-admins@example.com"].target_vm == module.vm[0].names["app-vm-01"]
     error_message = "IAP binding's target_vm should resolve to the real google_compute_instance name, not the config key"
   }
 }

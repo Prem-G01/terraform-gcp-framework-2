@@ -24,13 +24,16 @@ on:
       - "modules/**"
       - "platform/**"
       - "engine/**"
+      - "environments/**"
+      - "scripts/startup/**"
+      - ".github/workflows/**"
   workflow_dispatch:
     inputs:
       environment:
         description: "Single environment to apply (leave blank to auto-detect from changed paths)"
         required: false
         type: choice
-        options: ["", dev, sit, uat, prod, saafe]
+        options: ["", dev, sit, uat, prod, saafe, callgenie]
 
 permissions:
   contents: read
@@ -64,15 +67,15 @@ jobs:
           before="${{ github.event.before }}"
           after="${{ github.event.after }}"
           if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
-            envs='["dev","sit","uat","prod","saafe"]'
+            envs='["dev","sit","uat","prod","saafe","callgenie"]'
           else
             changed=$(git diff --name-only "$before" "$after")
-            if echo "$changed" | grep -qE '^(modules/|platform/|config/global/|config/schema/|engine/)'; then
-              envs='["dev","sit","uat","prod","saafe"]'
+            if echo "$changed" | grep -qE '^(modules/|platform/|config/global/|config/schema/|engine/|\.github/workflows/)'; then
+              envs='["dev","sit","uat","prod","saafe","callgenie"]'
             else
               envs=$(echo "$changed" \
-                | grep -oE '^config/environments/[a-z]+/' \
-                | sed -E 's#config/environments/([a-z]+)/#\1#' \
+                | grep -oE '^(config/environments|environments)/[a-z]+/|^scripts/startup/' \
+                | sed -E 's#^(config/environments|environments)/([a-z]+)/#\2#; s#^scripts/startup/$#callgenie#' \
                 | sort -u | jq -R . | jq -sc .)
             fi
           fi
@@ -105,17 +108,12 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Validate
+      - name: Validate and render
         run: |
           set -euo pipefail
           pip install -q -r engine/requirements.txt
-          python -m engine.cli validate "config/environments/${{ matrix.env }}" --json | tee validation.json
-          python -c "import json,sys; sys.exit(1 if json.load(open('validation.json'))['blocked'] else 0)"
+          python -m engine.ci_prepare "${{ matrix.env }}"
 
-      - name: Render
-        run: |
-          python -m engine.cli render "config/environments/${{ matrix.env }}" \
-            --out "environments/${{ matrix.env }}/.generated/deployment.normalized.json"
 
       - id: auth
         uses: google-github-actions/auth@v2

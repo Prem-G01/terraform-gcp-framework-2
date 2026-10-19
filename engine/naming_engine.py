@@ -9,7 +9,7 @@ import re
 
 from engine.errors import Finding
 
-_ALLOWED_ENVIRONMENTS = {"dev", "sit", "uat", "prod", "saafe"}
+_ALLOWED_ENVIRONMENTS = {"dev", "sit", "uat", "prod", "saafe", "callgenie"}
 
 
 def validate_naming(deployment) -> list[Finding]:

@@ -6,7 +6,8 @@ resource "google_artifact_registry_repository" "repository" {
   location               = each.value.location
   description            = each.value.description
   labels                 = lookup(each.value, "labels", {})
-  cleanup_policy_dry_run = false
+  mode                   = lookup(each.value, "mode", null)
+  cleanup_policy_dry_run = lookup(each.value, "cleanup_policy_dry_run", false)
 
   # `cleanup_policy` itself is optional (falls back to no cleanup policy
   # at all when omitted, matching GCP's own default) — found hard-required
