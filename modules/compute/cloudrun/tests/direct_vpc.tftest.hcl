@@ -31,3 +31,23 @@ run "authenticated_service_uses_dedicated_private_subnet" {
     error_message = "The private access baseline must not grant allUsers invoker."
   }
 }
+
+run "compute_self_links_become_cloud_run_resource_paths" {
+  command = plan
+  variables {
+    vpcs = {
+      callgenie-dev-vpc = "https://www.googleapis.com/compute/v1/projects/callgenie-test-project/global/networks/callgenie-dev-vpc"
+    }
+    subnets = {
+      callgenie-dev-public-subnet = "https://www.googleapis.com/compute/v1/projects/callgenie-test-project/regions/asia-south1/subnetworks/callgenie-dev-public-subnet"
+    }
+  }
+  assert {
+    condition     = google_cloud_run_v2_service.cloudrun["dg-api-backend-cl"].template[0].vpc_access[0].network_interfaces[0].network == "projects/callgenie-test-project/global/networks/callgenie-dev-vpc"
+    error_message = "Compute network self-links must be converted to the resource path accepted by Cloud Run."
+  }
+  assert {
+    condition     = google_cloud_run_v2_service.cloudrun["dg-api-backend-cl"].template[0].vpc_access[0].network_interfaces[0].subnetwork == "projects/callgenie-test-project/regions/asia-south1/subnetworks/callgenie-dev-public-subnet"
+    error_message = "Compute subnet self-links must be converted to the resource path accepted by Cloud Run."
+  }
+}
