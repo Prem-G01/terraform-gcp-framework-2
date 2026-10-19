@@ -1,94 +1,41 @@
-# =============================================================================
-# Plan pipeline — runs on every PR that touches config/environments/<env>,
-# shared modules, or the platform root. Read-only: validates, renders, and
-# plans. Never applies. Replaces the old cicd/cloudbuild-plan.yaml now that
-# GitHub Actions (not Cloud Build) is this platform's CI/CD engine — see
-# docs/cicd.md.
-#
-# Authenticates to GCP via Workload Identity Federation
-# (bootstrap/main.tf's google_iam_workload_identity_pool_provider.github) —
-# no service-account key ever stored in GitHub. One-time setup, per
-# repository:
-#   1. terraform apply bootstrap/ with enable_workload_identity_federation
-#      = true and github_repository = "<org>/<repo>".
-#   2. Create a repository variable ENVIRONMENTS_JSON (Settings > Secrets
-#      and variables > Actions > Variables) — see docs/cicd.md for its
-#      shape.
-# =============================================================================
-
-name: Terraform Plan
+# Callgenie-only plan workflow for Prem-G01/terraform-gcp-framework-2.
+# Saafe production is deliberately excluded from deployment in this repository.
+name: Callgenie Terraform Plan
 
 on:
   pull_request:
     branches: [main]
     paths:
-      - "config/environments/**"
+      - "config/environments/callgenie/**"
+      - "environments/callgenie/**"
       - "config/global/**"
       - "config/schema/**"
       - "modules/**"
       - "platform/**"
       - "engine/**"
-      - "environments/**"
       - "scripts/startup/**"
       - ".github/workflows/**"
   workflow_dispatch:
     inputs:
       environment:
-        description: "Single environment to plan (leave blank to auto-detect from changed paths)"
-        required: false
+        description: "Callgenie dev only (prj-dg-cl-apps-dev)"
+        required: true
+        default: callgenie
         type: choice
-        options: ["", dev, sit, uat, prod, saafe, callgenie]
+        options: [callgenie]
 
 permissions:
   contents: read
   id-token: write
 
 jobs:
-  detect-envs:
-    runs-on: ubuntu-latest
-    outputs:
-      envs: ${{ steps.detect.outputs.envs }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - id: detect
-        run: |
-          set -euo pipefail
-          if [ -n "${{ inputs.environment }}" ]; then
-            echo 'envs=["${{ inputs.environment }}"]' >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          # workflow_dispatch with no environment chosen has no PR to diff
-          # against (github.event.pull_request is only set on pull_request
-          # events) — refuse with a clear message instead of crashing on
-          # `git diff` against an empty ref.
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
-            echo "::error::Manual run with no environment selected — choose one from the 'environment' input rather than leaving it blank." >&2
-            exit 1
-          fi
-          base="${{ github.event.pull_request.base.sha }}"
-          head="${{ github.sha }}"
-          changed=$(git diff --name-only "$base" "$head")
-          if echo "$changed" | grep -qE '^(modules/|platform/|config/global/|config/schema/|engine/|\.github/workflows/)'; then
-            envs='["dev","sit","uat","prod","saafe","callgenie"]'
-          else
-            envs=$(echo "$changed" \
-              | grep -oE '^(config/environments|environments)/[a-z]+/|^scripts/startup/' \
-              | sed -E 's#^(config/environments|environments)/([a-z]+)/#\2#; s#^scripts/startup/$#callgenie#' \
-              | sort -u | jq -R . | jq -sc .)
-          fi
-          echo "envs=$envs" >> "$GITHUB_OUTPUT"
-
   plan:
-    needs: detect-envs
-    if: needs.detect-envs.outputs.envs != '[]'
+    if: github.repository == 'Prem-G01/terraform-gcp-framework-2'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        env: ${{ fromJson(needs.detect-envs.outputs.envs) }}
+        env: [callgenie]
     # A new push to the same PR makes the previous plan stale — cancel it
     # rather than waste a runner computing a plan nobody will read.
     concurrency:
@@ -142,7 +89,7 @@ jobs:
             -backend-config="bucket=${{ fromJson(vars.ENVIRONMENTS_JSON)[matrix.env].state_bucket }}" \
             -backend-config="prefix=${{ matrix.env }}"
           terraform validate
-          terraform plan -input=false -out=tfplan
+          terraform plan -input=false -var="project_id=prj-dg-cl-apps-dev" -out=tfplan
           terraform show -no-color tfplan > plan.txt
           terraform show -json tfplan > plan.json
 

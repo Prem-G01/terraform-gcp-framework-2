@@ -153,14 +153,21 @@ Use identities with verified access to `prj-dg-cl-apps-dev` and the state/artifa
 buckets. Disabling runtime service accounts does not remove the need for CI
 identities to authenticate Terraform. Do not store service-account keys in Git.
 
-Both workflows support manual selection of `callgenie`. Their validation helper
+The deployment repository is `Prem-G01/terraform-gcp-framework-2`. Both workflows
+are restricted to `callgenie` and explicitly plan against `prj-dg-cl-apps-dev`.
+They do not run in other repositories or deploy Saafe production. Their validation helper
 allows only `SEC_PUBLIC_VM` on `vm.dg-cg-redis-vm` for Callgenie and records the
 existing security-override audit. Other validation errors still block deployment.
-Startup script and environment Terraform changes also trigger environment detection.
+Startup script and Callgenie Terraform changes also trigger the Callgenie workflow.
 
 Push a feature branch, open a PR, review the Terraform plan, and merge only when
 the configured environment and identities are ready. Shared infrastructure changes
-trigger multiple environment jobs, so inspect all affected plans before merging.
-After merge, approve only the intended GitHub Environment deployment. Run Redis
+in this repository run only the Callgenie job. Saafe production deployment stays
+outside this workflow. After merge, approve the `callgenie` GitHub Environment deployment. Run Redis
 startup checks from [Redis setup](redis-callgenie.md) after deployment; Terraform
 completion does not establish application readiness.
+
+The GitHub WIF trust must authorize `Prem-G01/terraform-gcp-framework-2` rather than
+another repository. Use a separate state prefix `callgenie`, never `saafe`. The
+state bucket may be a centrally managed bucket only if access is explicitly
+configured; neither Saafe state nor Saafe runtime identities are reused by default.

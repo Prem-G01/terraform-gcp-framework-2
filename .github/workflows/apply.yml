@@ -1,98 +1,42 @@
-# =============================================================================
-# Apply pipeline — runs only on push to main, as the tf-apply service
-# account, and ONLY after the matching GitHub Environment's required
-# reviewers approve (the `environment:` key below — configure required
-# reviewers per environment in Settings > Environments, once per repo; see
-# docs/cicd.md). Replaces the old cicd/cloudbuild-apply.yaml now that
-# GitHub Actions is this platform's CI/CD engine.
-#
-# Re-validates from scratch rather than trusting plan.yml's artifacts — if
-# main moved between the plan a human approved and this run, it validates
-# the *current* main, not the approved snapshot (see docs/cicd.md "Why
-# re-validate in the apply pipeline").
-# =============================================================================
-
-name: Terraform Apply
+# Callgenie-only apply workflow for Prem-G01/terraform-gcp-framework-2.
+# Saafe production is deliberately excluded from deployment in this repository.
+name: Callgenie Terraform Apply
 
 on:
   push:
     branches: [main]
     paths:
-      - "config/environments/**"
+      - "config/environments/callgenie/**"
+      - "environments/callgenie/**"
       - "config/global/**"
       - "config/schema/**"
       - "modules/**"
       - "platform/**"
       - "engine/**"
-      - "environments/**"
       - "scripts/startup/**"
       - ".github/workflows/**"
   workflow_dispatch:
     inputs:
       environment:
-        description: "Single environment to apply (leave blank to auto-detect from changed paths)"
-        required: false
+        description: "Callgenie dev only (prj-dg-cl-apps-dev)"
+        required: true
+        default: callgenie
         type: choice
-        options: ["", dev, sit, uat, prod, saafe, callgenie]
+        options: [callgenie]
 
 permissions:
   contents: read
   id-token: write
 
 jobs:
-  detect-envs:
-    runs-on: ubuntu-latest
-    outputs:
-      envs: ${{ steps.detect.outputs.envs }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - id: detect
-        run: |
-          set -euo pipefail
-          if [ -n "${{ inputs.environment }}" ]; then
-            echo 'envs=["${{ inputs.environment }}"]' >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          # workflow_dispatch with no environment chosen has no `before`/
-          # `after` to diff (those only exist on push events) — refuse
-          # rather than silently falling into the "diff everything" branch
-          # below, which would otherwise apply to dev/sit/uat/prod at once.
-          if [ "${{ github.event_name }}" != "push" ]; then
-            echo "::error::Manual run with no environment selected — choose one from the 'environment' input rather than leaving it blank." >&2
-            exit 1
-          fi
-          before="${{ github.event.before }}"
-          after="${{ github.event.after }}"
-          if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
-            envs='["dev","sit","uat","prod","saafe","callgenie"]'
-          else
-            changed=$(git diff --name-only "$before" "$after")
-            if echo "$changed" | grep -qE '^(modules/|platform/|config/global/|config/schema/|engine/|\.github/workflows/)'; then
-              envs='["dev","sit","uat","prod","saafe","callgenie"]'
-            else
-              envs=$(echo "$changed" \
-                | grep -oE '^(config/environments|environments)/[a-z]+/|^scripts/startup/' \
-                | sed -E 's#^(config/environments|environments)/([a-z]+)/#\2#; s#^scripts/startup/$#callgenie#' \
-                | sort -u | jq -R . | jq -sc .)
-            fi
-          fi
-          echo "envs=$envs" >> "$GITHUB_OUTPUT"
-
   apply:
-    needs: detect-envs
-    if: needs.detect-envs.outputs.envs != '[]'
+    if: github.repository == 'Prem-G01/terraform-gcp-framework-2'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        env: ${{ fromJson(needs.detect-envs.outputs.envs) }}
-    # Each of dev/sit/uat/prod/saafe must exist as a GitHub Environment
-    # (Settings > Environments) with required reviewers configured — that
-    # protection rule is what gates this job on a human clicking Approve,
-    # equivalent to Cloud Build's old --require-approval.
+        env: [callgenie]
+    # Configure required reviewers on this repository's callgenie environment.
     environment: ${{ matrix.env }}
     # Serialize applies per environment — never cancel an in-flight apply
     # (that could leave infrastructure half-applied), just queue the next
@@ -151,7 +95,7 @@ jobs:
             -backend-config="bucket=${{ fromJson(vars.ENVIRONMENTS_JSON)[matrix.env].state_bucket }}" \
             -backend-config="prefix=${{ matrix.env }}"
           terraform validate
-          terraform plan -input=false -out=tfplan
+          terraform plan -input=false -var="project_id=prj-dg-cl-apps-dev" -out=tfplan
           terraform apply -input=false -auto-approve tfplan
           terraform output -json > apply_outputs.json
 
