@@ -13,7 +13,7 @@ locals {
   plan_roles = toset([
     "roles/viewer", "roles/iam.securityReviewer", "roles/serviceusage.serviceUsageConsumer",
   ])
-  apply_subject = "repo:${var.github_repository}:environment:callgenie"
+  apply_subject = "${var.github_subject_prefix}:environment:callgenie"
 }
 
 resource "google_project_service" "bootstrap" {
@@ -115,7 +115,7 @@ resource "google_iam_workload_identity_pool_provider" "github" {
   }
   # PR plan tokens do not contain an environment claim. Apply tokens must
   # name the callgenie GitHub Environment AND originate from main.
-  attribute_condition = "assertion.repository == '${var.github_repository}' && (assertion.sub != '${local.apply_subject}' || assertion.ref == 'refs/heads/main')"
+  attribute_condition = "assertion.repository == '${var.github_repository}' && assertion.sub.startsWith('${var.github_subject_prefix}:') && (assertion.sub != '${local.apply_subject}' || assertion.ref == 'refs/heads/main')"
   oidc { issuer_uri = "https://token.actions.githubusercontent.com" }
 }
 
