@@ -1,0 +1,9 @@
+{
+  "callgenie": {
+    "artifact_bucket": "prj-dg-cl-apps-dev-tf-artifacts",
+    "state_bucket": "prj-dg-cl-apps-dev-tfstate",
+    "tf_apply_sa": "tf-apply-callgenie@prj-dg-cl-apps-dev.iam.gserviceaccount.com",
+    "tf_plan_sa": "tf-plan-callgenie@prj-dg-cl-apps-dev.iam.gserviceaccount.com",
+    "wif_provider": "projects/1047815843325/locations/global/workloadIdentityPools/callgenie-github/providers/github"
+  }
+}

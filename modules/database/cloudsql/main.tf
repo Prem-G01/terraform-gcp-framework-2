@@ -24,6 +24,11 @@ resource "google_sql_database_instance" "cloudsql" {
 
   settings {
 
+    edition                     = try(each.value.edition, null)
+    auto_upgrade_enabled        = try(each.value.auto_upgrade_enabled, null)
+    retain_backups_on_delete    = try(each.value.retain_backups_on_delete, null)
+    deletion_protection_enabled = try(each.value.deletion_protection_enabled, null)
+
     tier = each.value.tier
 
     availability_type = each.value.availability_type
@@ -39,6 +44,10 @@ resource "google_sql_database_instance" "cloudsql" {
 
 
     backup_configuration {
+      # MySQL PITR uses binary logs; the PostgreSQL PITR flag is separate.
+      binary_log_enabled             = try(each.value.backup.binary_log_enabled, null)
+      transaction_log_retention_days = try(each.value.backup.transaction_log_retention_days, null)
+
 
       # `backup` was, like deletion_protection above, a hard-required
       # each.value reference with no fallback and no schema/engine-level
@@ -57,6 +66,8 @@ resource "google_sql_database_instance" "cloudsql" {
 
 
     ip_configuration {
+      ssl_mode = try(each.value.network.ssl_mode, null)
+
 
       # Secure-by-default fallback matching
       # security_defaults.database.public_ip (false) — this platform's

@@ -43,7 +43,7 @@ run "omitted_security_fields_fall_back_to_secure_defaults" {
   }
 
   assert {
-    condition     = length(google_compute_instance.vm["app-vm-01"].network_interface[0].access_config) == 0
+    condition     = length(google_compute_address.internal) == 0 && length(google_compute_instance.vm["app-vm-01"].network_interface[0].access_config) == 0
     error_message = "network.public_ip must default to false (no access_config block) when omitted from config"
   }
 

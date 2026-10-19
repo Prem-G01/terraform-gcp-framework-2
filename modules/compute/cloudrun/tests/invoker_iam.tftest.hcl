@@ -42,7 +42,7 @@ run "omitted_allow_unauthenticated_grants_no_public_invoker" {
   }
 
   assert {
-    condition     = length(google_cloud_run_v2_service_iam_member.public_invoker) == 0
+    condition     = length(google_cloud_run_v2_service_iam_member.public_invoker) == 0 && length(google_cloud_run_v2_service.cloudrun["app-api"].template[0].vpc_access) == 0
     error_message = "Omitting allow_unauthenticated must grant zero public invoker bindings — deny-by-default"
   }
 }

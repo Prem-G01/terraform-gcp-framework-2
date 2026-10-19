@@ -30,7 +30,11 @@ INSTANCE_REFERENCES: dict[str, list[tuple[str, str]]] = {
     "private_service_access": [("network", "vpc")],
     "vm": [("subnet", "subnet"), ("service_account.name", "service_accounts")],
     "cloudsql": [("network.private_network", "vpc")],
-    "cloudrun": [("service_account.name", "service_accounts")],
+    "cloudrun": [
+        ("service_account.name", "service_accounts"),
+        ("vpc_access.network", "vpc"),
+        ("vpc_access.subnet", "subnet"),
+    ],
     "load_balancer": [("backend.service", "cloudrun")],
     "workflows": [("service_account", "service_accounts")],
     "gke": [("network", "vpc"), ("subnet", "subnet"), ("node_pool.service_account", "service_accounts")],
@@ -167,6 +171,28 @@ def validate_instance_references(deployment) -> list[Finding]:
                 if value in (None, ""):
                     continue  # required-field check in schema_validator handles absence
                 _check_reference(deployment, enabled, f"{rtype}.{name}", field_path, value, target_type, findings)
+
+    # Direct VPC needs a subnet in the selected network and service region.
+    services = deployment.instances("cloudrun") if "cloudrun" in enabled else {}
+    for name, service in services.items():
+        access = service.get("vpc_access")
+        if not isinstance(access, dict):
+            continue
+        subnet = deployment.instances("subnet").get(access.get("subnet"), {})
+        if not subnet:
+            continue
+        for field, actual, expected in (
+            ("vpc", subnet.get("vpc"), access.get("network")),
+            ("region", subnet.get("region"), service.get("location")),
+        ):
+            if actual and expected and actual != expected:
+                findings.append(Finding(
+                    severity="ERROR",
+                    category="dependency",
+                    rule="CLOUDRUN_VPC_MISMATCH",
+                    resource=f"cloudrun.{name}",
+                    message=f"VPC access subnet {field} is '{actual}', expected '{expected}'.",
+                ))
 
     for rtype, collection_field, ref_field, target_type in NESTED_INSTANCE_REFERENCES:
         if rtype not in enabled:

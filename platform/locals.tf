@@ -22,7 +22,7 @@ locals {
     "service_accounts", "vm", "secrets", "cloudsql", "buckets", "artifact_registry",
     "kms", "pubsub", "cloudtasks", "cloudrun", "load_balancer", "scheduler",
     "workflows", "notification_channels", "alert_policies", "uptime_checks",
-    "logging", "bigquery", "documentai",
+    "logging", "bigquery", "documentai", "firestore",
     "gke", "cloudfunctions", "memorystore", "vpc_service_controls",
     "org_policies", "iap", "workload_identity", "binary_authorization",
   ]

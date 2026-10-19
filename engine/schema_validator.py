@@ -33,6 +33,7 @@ RESOURCE_RULES: dict[str, dict] = {
     "vm": {"required": ["zone", "machine_type", "subnet", "service_account.name", "boot_disk.image"]},
     "secrets": {"required": ["secret_id", "length"]},
     "cloudsql": {"required": ["region", "database_version", "tier", "network.private_network"]},
+    "firestore": {"required": ["database_id", "location"]},
     "buckets": {"required": ["location", "storage_class"]},
     "artifact_registry": {"required": ["repository_id", "format", "location"]},
     "kms": {"required": ["location", "keys"]},
@@ -120,7 +121,12 @@ def validate_required_fields(deployment) -> list[Finding]:
         if not rules:
             continue
         for name, instance in deployment.instances(rtype).items():
-            missing = [p for p in rules["required"] if _get_path(instance, p) in (None, "")]
+            required = list(rules["required"])
+            if rtype == "vm" and _get_path(instance, "service_account.enabled") is False:
+                required.remove("service_account.name")
+            if rtype == "cloudrun" and instance.get("vpc_access") is not None:
+                required.extend(["vpc_access.network", "vpc_access.subnet"])
+            missing = [p for p in required if _get_path(instance, p) in (None, "")]
             if missing:
                 findings.append(
                     Finding(

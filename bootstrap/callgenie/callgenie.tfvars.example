@@ -1,0 +1,5 @@
+project_id           = "prj-dg-cl-apps-dev"
+region               = "asia-south1"
+github_repository    = "Prem-G01/terraform-gcp-framework-2"
+state_bucket_name    = "prj-dg-cl-apps-dev-tfstate"
+artifact_bucket_name = "prj-dg-cl-apps-dev-tf-artifacts"

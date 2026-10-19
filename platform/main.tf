@@ -132,6 +132,14 @@ module "cloudsql" {
   depends_on      = [module.apis, module.vpc, module.private_service_access, module.secrets]
 }
 
+module "firestore" {
+  count      = local.enabled.firestore ? 1 : 0
+  source     = "../modules/database/firestore"
+  project_id = var.project_id
+  config     = { firestore = local.instances.firestore }
+  depends_on = [module.apis]
+}
+
 module "buckets" {
   count      = local.enabled.buckets ? 1 : 0
   source     = "../modules/storage/buckets"
@@ -179,7 +187,9 @@ module "cloudrun" {
   project_id       = var.project_id
   config           = { cloudrun = local.instances.cloudrun }
   service_accounts = try(module.service_accounts[0].emails, {})
-  depends_on       = [module.apis, module.service_accounts]
+  vpcs             = try(module.vpc[0].self_links, {})
+  subnets          = try(module.subnet[0].self_links, {})
+  depends_on       = [module.apis, module.service_accounts, module.nat]
 }
 
 module "load_balancer" {
