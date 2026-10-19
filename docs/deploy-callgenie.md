@@ -125,9 +125,9 @@ review findings before using it. No other security exceptions are expected.
 ```powershell
 python -m engine.cli validate config/environments/callgenie
 python -m engine.cli render config/environments/callgenie --out environments/callgenie/.generated/deployment.normalized.json --force-security --reason "Approved dev Redis external IP for package downloads without NAT; private Redis bind and restricted ingress"
-terraform -chdir=environments/callgenie init -backend-config="bucket=YOUR_STATE_BUCKET" -backend-config="prefix=callgenie"
+terraform -chdir=environments/callgenie init -backend-config="bucket=prj-dg-cl-apps-dev-tfstate" -backend-config="prefix=callgenie"
 terraform -chdir=environments/callgenie validate
-terraform -chdir=environments/callgenie plan -out=callgenie.tfplan
+terraform -chdir=environments/callgenie plan "-out=callgenie.tfplan"
 ```
 
 After reviewing the real plan and setting required identities:
@@ -171,3 +171,55 @@ The GitHub WIF trust must authorize `Prem-G01/terraform-gcp-framework-2` rather 
 another repository. Use a separate state prefix `callgenie`, never `saafe`. The
 state bucket may be a centrally managed bucket only if access is explicitly
 configured; neither Saafe state nor Saafe runtime identities are reused by default.
+
+## Isolated Callgenie CI bootstrap
+
+`bootstrap/callgenie` creates CI setup only in `prj-dg-cl-apps-dev`: two dedicated
+buckets, plan/apply CI accounts, and GitHub Workload Identity Federation. It does
+not use the existing hub or Saafe state. It creates no VM runtime accounts.
+
+```powershell
+terraform -chdir=bootstrap/callgenie init
+terraform -chdir=bootstrap/callgenie plan "-var-file=callgenie.tfvars.example" "-out=bootstrap.tfplan"
+# Review that every resource belongs to prj-dg-cl-apps-dev, then:
+terraform -chdir=bootstrap/callgenie apply bootstrap.tfplan
+terraform -chdir=bootstrap/callgenie output -raw github_environments_json
+```
+
+Set the output JSON as the repository Actions variable `ENVIRONMENTS_JSON` at
+https://github.com/Prem-G01/terraform-gcp-framework-2/settings/variables/actions.
+Create the GitHub Environment `callgenie`, require a reviewer, and restrict its
+deployment branches to `main`. The apply federation binding also restricts the
+OIDC subject to that environment and the provider requires main for that subject.
+
+Keep `bootstrap/callgenie/terraform.tfstate` and any backup securely outside Git;
+this separate local state manages the CI bootstrap. It must not be confused with
+`callgenie/` application state in the dedicated state bucket. Save a protected
+copy of bootstrap state after setup, and always use that state for future updates.
+The plan account can read infrastructure and manage objects in the dedicated
+state bucket because Terraform needs to write and delete its state lock.
+
+### Setup completed on 2026-10-20
+
+The isolated bootstrap was applied successfully: 31 additions, no changes or
+removals. Its state backup is stored at
+`gs://prj-dg-cl-apps-dev-tf-artifacts/bootstrap/callgenie/terraform.tfstate`.
+The local application plan completed with 36 additions, no changes or removals;
+application resources have not been applied. Saafe was not targeted.
+
+To finish GitHub setup:
+
+1. Open https://github.com/Prem-G01/terraform-gcp-framework-2/settings/variables/actions.
+   Select **New repository variable**, name it **ENVIRONMENTS_JSON**, and paste the
+   entire contents of `config/environments/callgenie/github-environments.json`.
+   The file contains identifiers only, not credentials.
+2. Open https://github.com/Prem-G01/terraform-gcp-framework-2/settings/environments.
+   Create **callgenie**, configure the required reviewer, and allow deployment only
+   from **main**. The GCP provider also enforces main for the apply subject.
+3. Open the feature branch PR and review its GitHub plan. Merge only after the
+   GitHub setup is saved and the plan is reviewed, then approve the Callgenie
+   apply job. Never run the Saafe stack for this deployment.
+
+If restoring bootstrap state on another workstation, download the protected
+backup into `bootstrap/callgenie/terraform.tfstate` before planning updates. Do
+not apply this bootstrap again with an empty state while its resources exist.

@@ -75,9 +75,9 @@ cannot be bypassed by this local override.
 
    ```powershell
    python -m engine.cli render config/environments/callgenie --out environments/callgenie/.generated/deployment.normalized.json --force-security --reason "Approved dev Redis external IP for package downloads without NAT; private Redis bind and restricted ingress"
-   terraform -chdir=environments/callgenie init -backend-config="bucket=YOUR_STATE_BUCKET" -backend-config="prefix=callgenie"
+   terraform -chdir=environments/callgenie init -backend-config="bucket=prj-dg-cl-apps-dev-tfstate" -backend-config="prefix=callgenie"
    terraform -chdir=environments/callgenie validate
-   terraform -chdir=environments/callgenie plan -out=callgenie.tfplan
+   terraform -chdir=environments/callgenie plan "-out=callgenie.tfplan"
    ```
 
 4. Review the plan, then deploy:
