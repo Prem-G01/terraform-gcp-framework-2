@@ -37,8 +37,10 @@ resource "google_cloud_run_v2_service" "cloudrun" {
       content {
         egress = lookup(vpc_access.value, "egress", "PRIVATE_RANGES_ONLY")
         network_interfaces {
-          network    = var.vpcs[vpc_access.value.network]
-          subnetwork = var.subnets[vpc_access.value.subnet]
+          # Cloud Run requires projects/... resource paths; Compute outputs
+          # full self-links. Keep already-canonical resource paths unchanged.
+          network    = replace(var.vpcs[vpc_access.value.network], "/^https:\\/\\/[^/]+\\/compute\\/v1\\//", "")
+          subnetwork = replace(var.subnets[vpc_access.value.subnet], "/^https:\\/\\/[^/]+\\/compute\\/v1\\//", "")
           tags       = lookup(vpc_access.value, "tags", [])
         }
       }
