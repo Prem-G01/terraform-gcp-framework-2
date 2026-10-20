@@ -87,3 +87,19 @@ output "workload_identity_bindings" {
 output "binary_authorization_evaluation_mode" {
   value = try(module.binary_authorization[0].evaluation_mode, null)
 }
+
+output "notification_channel_names" {
+  value = try(module.notification_channels[0].channels, {})
+}
+
+output "alert_policy_names" {
+  value = try(module.alert_policies[0].alert_policies, {})
+}
+
+output "uptime_check_names" {
+  value = try(module.uptime_checks[0].uptime_checks, {})
+}
+
+output "monitoring_dashboard_ids" {
+  value = try(module.dashboards[0].dashboards, {})
+}

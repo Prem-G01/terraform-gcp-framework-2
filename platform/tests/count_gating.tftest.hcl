@@ -119,3 +119,19 @@ run "binary_authorization_defaults_to_always_deny" {
     error_message = "Fixture sets evaluation_mode: ALWAYS_DENY — the safe starting point with no attestors configured"
   }
 }
+
+run "dashboards_enabled_creates_only_the_dashboard" {
+  # The provider-computed dashboard ID is resolved by a fully mocked apply.
+  command = apply
+  variables {
+    deployment_file = "tests/fixtures/dashboards_enabled.json"
+  }
+  assert {
+    condition     = length(output.enabled_resources) == 1 && output.enabled_resources.dashboards
+    error_message = "Only dashboards must be enabled by the dashboard fixture."
+  }
+  assert {
+    condition     = contains(keys(output.monitoring_dashboard_ids), "overview")
+    error_message = "The enabled dashboard must be connected to platform outputs."
+  }
+}

@@ -4,11 +4,11 @@ locals {
     "cloudresourcemanager.googleapis.com", "serviceusage.googleapis.com", "storage.googleapis.com",
     "logging.googleapis.com",
   ])
-  # Only services present in the Callgenie stack; no production IAM or runtime SAs.
+  # Callgenie dev service permissions; the VM runtime identity emits telemetry only.
   apply_roles = toset([
     "roles/compute.admin", "roles/cloudsql.admin", "roles/secretmanager.admin",
     "roles/storage.admin", "roles/artifactregistry.admin", "roles/datastore.owner",
-    "roles/run.admin", "roles/serviceusage.serviceUsageAdmin",
+    "roles/run.admin", "roles/serviceusage.serviceUsageAdmin", "roles/monitoring.admin",
     "roles/servicenetworking.networksAdmin", "roles/iam.serviceAccountUser",
   ])
   plan_roles = toset([
@@ -158,4 +158,20 @@ resource "google_storage_bucket_iam_member" "shared_log_export_writer" {
   bucket = google_storage_bucket.shared_history.name
   role   = "roles/storage.objectCreator"
   member = google_logging_project_sink.central_history.writer_identity
+}
+
+
+# A shared VM identity that can emit telemetry, without application/data access.
+resource "google_service_account" "vm_monitoring" {
+  project      = var.project_id
+  account_id   = var.monitoring_service_account_id
+  display_name = "Callgenie VM monitoring"
+  description  = "Emits VM and Redis monitoring metrics and system logs."
+  depends_on   = [google_project_service.bootstrap]
+}
+resource "google_project_iam_member" "vm_monitoring" {
+  for_each = toset(["roles/monitoring.metricWriter", "roles/logging.logWriter"])
+  project  = var.project_id
+  role     = each.value
+  member   = "serviceAccount:${google_service_account.vm_monitoring.email}"
 }

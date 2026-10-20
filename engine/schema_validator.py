@@ -44,6 +44,8 @@ RESOURCE_RULES: dict[str, dict] = {
     "scheduler": {"required": ["location", "schedule", "http_target.uri"]},
     "workflows": {"required": ["region", "service_account", "source_contents"]},
     "notification_channels": {"required": ["type"]},
+    "dashboards": {"required": ["dashboard"]},
+    "metric_descriptors": {"required": ["type", "metric_kind", "value_type", "description"]},
     "alert_policies": {"required": ["filter", "threshold", "comparison"]},
     "uptime_checks": {"required": ["host", "path"]},
     "logging": {"required": ["bucket_id", "location"]},
@@ -122,7 +124,12 @@ def validate_required_fields(deployment) -> list[Finding]:
             continue
         for name, instance in deployment.instances(rtype).items():
             required = list(rules["required"])
-            if rtype == "vm" and _get_path(instance, "service_account.enabled") is False:
+            if rtype == "alert_policies" and instance.get("condition_type") == "absence":
+                required = ["filter", "duration"]
+            if rtype == "vm" and (
+                _get_path(instance, "service_account.enabled") is False
+                or _get_path(instance, "service_account.email") not in (None, "")
+            ):
                 required.remove("service_account.name")
             if rtype == "cloudrun" and instance.get("vpc_access") is not None:
                 required.extend(["vpc_access.network", "vpc_access.subnet"])

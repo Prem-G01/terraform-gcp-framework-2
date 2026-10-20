@@ -20,8 +20,8 @@ run "redis_bootstrap_has_outbound_access_and_reserved_private_address" {
     error_message = "Redis installation must only run on the Redis VM."
   }
   assert {
-    condition     = alltrue([for vm in google_compute_instance.vm : length(vm.service_account) == 0])
-    error_message = "CallGenie VMs must not attach a service account when explicitly disabled."
+    condition     = alltrue([for vm in google_compute_instance.vm : length(vm.service_account) == 1 && vm.service_account[0].email == "callgenie-monitoring@prj-dg-cl-apps-dev.iam.gserviceaccount.com"])
+    error_message = "CallGenie VMs must attach only the approved monitoring identity."
   }
   assert {
     condition     = length(google_compute_address.internal) == 1

@@ -7,3 +7,5 @@ storage_project_id = "prj-dg-devops-test"
 
 central_bucket_name = "infrastructere-terraform-logs"
 history_prefix      = "prj-dg-devops-test-callgenie-history"
+
+monitoring_service_account_id = "callgenie-monitoring"

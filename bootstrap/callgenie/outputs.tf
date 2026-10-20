@@ -19,3 +19,5 @@ output "history_bucket" { value = google_storage_bucket.shared_history.name }
 output "logging_sink" { value = google_logging_project_sink.central_history.name }
 
 output "history_prefix" { value = var.history_prefix }
+
+output "vm_monitoring_service_account" { value = google_service_account.vm_monitoring.email }

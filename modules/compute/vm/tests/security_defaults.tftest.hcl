@@ -96,3 +96,60 @@ run "explicit_public_ip_is_never_overridden" {
     error_message = "an explicit network.public_ip = true must never be silently overridden to false"
   }
 }
+
+
+run "existing_monitoring_identity_does_not_require_a_platform_created_account" {
+  command = plan
+  variables {
+    service_accounts = {}
+    config = {
+      vms = {
+        monitored-vm = {
+          zone                      = "asia-south1-a"
+          machine_type              = "e2-small"
+          subnet                    = "app-subnet"
+          allow_stopping_for_update = true
+          service_account = {
+            enabled = true
+            email   = "monitoring@example-project.iam.gserviceaccount.com"
+            scopes  = ["https://www.googleapis.com/auth/cloud-platform"]
+          }
+          boot_disk = { image = "projects/debian-cloud/global/images/family/debian-12", size_gb = 10, type = "pd-balanced" }
+          metadata  = {}
+          tags      = []
+          labels    = {}
+        }
+      }
+    }
+  }
+  assert {
+    condition     = google_compute_instance.vm["monitored-vm"].service_account[0].email == "monitoring@example-project.iam.gserviceaccount.com" && google_compute_instance.vm["monitored-vm"].allow_stopping_for_update
+    error_message = "An existing monitoring-only identity must attach without creating another account; stopping must be explicitly allowed."
+  }
+}
+
+
+run "explicit_disabled_identity_overrides_an_existing_email" {
+  command = plan
+  variables {
+    service_accounts = {}
+    config = {
+      vms = {
+        private-vm = {
+          zone            = "asia-south1-a"
+          machine_type    = "e2-small"
+          subnet          = "app-subnet"
+          service_account = { enabled = false, email = "unused@example-project.iam.gserviceaccount.com" }
+          boot_disk       = { image = "projects/debian-cloud/global/images/family/debian-12", size_gb = 10, type = "pd-balanced" }
+          metadata        = {}
+          tags            = []
+          labels          = {}
+        }
+      }
+    }
+  }
+  assert {
+    condition     = length(google_compute_instance.vm["private-vm"].service_account) == 0 && !google_compute_instance.vm["private-vm"].allow_stopping_for_update
+    error_message = "Disabling a service account must still work, and VM stopping must remain opt-in."
+  }
+}
