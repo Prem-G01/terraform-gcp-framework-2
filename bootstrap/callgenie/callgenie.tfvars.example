@@ -1,6 +1,7 @@
-project_id           = "prj-dg-cl-apps-dev"
-region               = "asia-south1"
-github_repository    = "Prem-G01/terraform-gcp-framework-2"
-state_bucket_name    = "prj-dg-cl-apps-dev-tfstate"
-artifact_bucket_name = "prj-dg-cl-apps-dev-tf-artifacts"
+project_id            = "prj-dg-cl-apps-dev"
+region                = "asia-south1"
+github_repository     = "Prem-G01/terraform-gcp-framework-2"
 github_subject_prefix = "repo:Prem-G01@159746045/terraform-gcp-framework-2@1362830835"
+
+storage_project_id  = "prj-dg-devops-test"
+history_bucket_name = "prj-dg-devops-test-callgenie-history"
