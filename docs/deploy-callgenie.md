@@ -11,11 +11,13 @@ The target GCP project is `prj-dg-cl-apps-dev`, configured in
 `environments/callgenie/variables.tf`. Keep both values aligned when changing
 projects. The framework does not create GCP projects or billing links.
 
-Terraform state, deployment history, and exported Cloud Logging records use one
-bucket: `prj-dg-devops-test-callgenie-history`, hosted in the DevOps project
-`prj-dg-devops-test`. Application resources remain in `prj-dg-cl-apps-dev`.
-The application backend uses the unique `callgenie` prefix. Do not copy another
-environment's `.terraform` directory, local state, or backend metadata. See
+Terraform state, deployment history, and Cloud Logging snapshots use the shared
+bucket `infrastructere-terraform-logs` in `prj-dg-devops-test`, inside the folder
+`prj-dg-devops-test-callgenie-history/`. Native Cloud Logging exports additionally
+use Google's log-type/date paths at the bucket root. Application resources remain
+in `prj-dg-cl-apps-dev`. The application backend prefix is
+`prj-dg-devops-test-callgenie-history/callgenie`. Do not copy another environment's
+`.terraform` directory, local state, or backend metadata. See
 [Callgenie history and recovery](callgenie-history.md) for the bucket layout,
 migration records, log coverage, and recovery steps.
 
@@ -130,7 +132,7 @@ review findings before using it. No other security exceptions are expected.
 ```powershell
 python -m engine.cli validate config/environments/callgenie
 python -m engine.cli render config/environments/callgenie --out environments/callgenie/.generated/deployment.normalized.json --force-security --reason "Approved dev Redis external IP for package downloads without NAT; private Redis bind and restricted ingress"
-terraform -chdir=environments/callgenie init -backend-config="bucket=prj-dg-devops-test-callgenie-history" -backend-config="prefix=callgenie"
+terraform -chdir=environments/callgenie init -backend-config="bucket=infrastructere-terraform-logs" -backend-config="prefix=prj-dg-devops-test-callgenie-history/callgenie"
 terraform -chdir=environments/callgenie validate
 terraform -chdir=environments/callgenie plan "-out=callgenie.tfplan"
 ```
@@ -153,10 +155,14 @@ it does not create a project. Do not use `-backend=false` as a deployment backen
 
 Create a GitHub Environment named `callgenie` with a required reviewer. Add a
 `callgenie` entry to repository variable `ENVIRONMENTS_JSON` containing the existing
-`wif_provider`, `tf_plan_sa`, `tf_apply_sa`, `state_bucket`, and `artifact_bucket`.
-Use identities with verified access to `prj-dg-cl-apps-dev` and the state/artifact
-bucket in `prj-dg-devops-test`. Set both `state_bucket` and `artifact_bucket` to
-`prj-dg-devops-test-callgenie-history`; the other identity settings are unchanged.
+`wif_provider`, `tf_plan_sa`, `tf_apply_sa`, `state_bucket`, `artifact_bucket`,
+`state_prefix`, `artifact_prefix`, and `logging_prefix`. Use identities with
+verified access to `prj-dg-cl-apps-dev` and their assigned shared-bucket paths in
+`prj-dg-devops-test`. Set both bucket fields to `infrastructere-terraform-logs`;
+set `state_prefix` to `prj-dg-devops-test-callgenie-history/callgenie`,
+`artifact_prefix` to `prj-dg-devops-test-callgenie-history/deployments/callgenie`,
+and `logging_prefix` to `prj-dg-devops-test-callgenie-history/cloud-logging`.
+The identity settings are unchanged.
 Disabling runtime service accounts does not remove the need for CI
 identities to authenticate Terraform. Do not store service-account keys in Git.
 
@@ -169,7 +175,11 @@ Startup script and Callgenie Terraform changes also trigger the Callgenie workfl
 Both workflows retain any reports and Terraform console output produced before
 a failure. The separate `archive-logs.yml` workflow archives completed Plan/Apply
 console ZIPs, including failed runs. Each run attempt has its own immutable
-`deployments/callgenie/<run-id>/attempts/<attempt>/` directory in the central bucket.
+`prj-dg-devops-test-callgenie-history/deployments/callgenie/<run-id>/attempts/<attempt>/`
+directory in the shared bucket. Hourly Cloud Logging snapshots run at minute 17
+and write entries/manifests under the configured `logging_prefix`; native sink
+exports also continue at the bucket root. See [history and recovery](callgenie-history.md#cloud-logging-coverage)
+for the ten-minute cutoff, 24-hour overlap, checkpoint behavior, and coverage limits.
 
 Push a feature branch, open a PR, review the Terraform plan, and merge only when
 the configured environment and identities are ready. Shared infrastructure changes
@@ -179,20 +189,30 @@ startup checks from [Redis setup](redis-callgenie.md) after deployment; Terrafor
 completion does not establish application readiness.
 
 The GitHub WIF trust must authorize `Prem-G01/terraform-gcp-framework-2` rather than
-another repository. Use a separate state prefix `callgenie`, never `saafe`. The
-Callgenie CI identities have explicit access to their state and deployment
-prefixes in the central bucket. Saafe state, deployment identities, production
+another repository. Use the exact Callgenie state prefix
+`prj-dg-devops-test-callgenie-history/callgenie`. The Callgenie CI identities have
+explicit access to their state, deployment, and snapshot prefixes in the shared
+bucket. Saafe state, deployment identities, production
 resources, and shared bootstrap configuration are unchanged.
 
 ## Isolated Callgenie CI bootstrap
 
 `bootstrap/callgenie` manages the Callgenie plan/apply CI accounts and GitHub
-Workload Identity Federation in `prj-dg-cl-apps-dev`. Its single history bucket
-is hosted in `prj-dg-devops-test`, configured through `storage_project_id` and
-`history_bucket_name`. Cross-project bucket IAM grants the existing CI accounts
-access to Callgenie state and deployment history. A project sink named
-`callgenie-central-history` exports Callgenie Cloud Logging records to this bucket.
-The bootstrap creates no VM runtime accounts and does not reuse Saafe state.
+Workload Identity Federation in `prj-dg-cl-apps-dev`. Shared storage is hosted
+in `prj-dg-devops-test`, configured through `storage_project_id`,
+`central_bucket_name = "infrastructere-terraform-logs"`, and
+`history_prefix = "prj-dg-devops-test-callgenie-history"`. Outputs include the
+bucket and prefix fields used by CI. Cross-project bucket IAM scopes the existing
+CI accounts to Callgenie's state, deployment, and snapshot paths. The shared
+bucket has Terraform `prevent_destroy`, versioning, seven-day soft delete, and no
+automatic lifecycle deletion. A project sink named `callgenie-central-history`
+exports Callgenie Cloud Logging records to the bucket root; the hourly snapshot
+job also archives records in Callgenie's folder. The bootstrap creates no VM
+runtime accounts and does not reuse Saafe state.
+
+Future environments must use distinct folders and prefix-scoped CI IAM in this
+same bucket. Reuse the existing bucket rather than creating another or declaring
+separate Terraform ownership for it. Existing Saafe production is not migrated.
 
 ```powershell
 terraform -chdir=bootstrap/callgenie init
@@ -210,12 +230,13 @@ OIDC subject to that environment and the provider requires main for that subject
 
 Keep `bootstrap/callgenie/terraform.tfstate` and any backup securely outside Git;
 this separate local state manages the CI bootstrap. It must not be confused with
-`callgenie/` application state in the central bucket. Save a protected copy at
-`gs://prj-dg-devops-test-callgenie-history/bootstrap/callgenie/terraform.tfstate`
+`prj-dg-devops-test-callgenie-history/callgenie/` application state in the shared
+bucket. Save a protected copy at
+`gs://infrastructere-terraform-logs/prj-dg-devops-test-callgenie-history/bootstrap/callgenie/terraform.tfstate`
 after bootstrap changes, and always use the existing state for future updates.
-The plan account can read infrastructure and manage the `callgenie/` state objects
-because Terraform needs to write and delete its state lock. Its deployment
-archive permission only creates new objects under `deployments/callgenie/`.
+The plan account can read infrastructure and manage Callgenie's state/lock and
+snapshot-checkpoint objects. Deployment archive permissions create new objects
+under its configured artifact prefix; snapshot uploads use its logging prefix.
 
 For a new repository or replacement workstation:
 

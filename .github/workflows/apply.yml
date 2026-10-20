@@ -16,6 +16,8 @@ on:
       - "scripts/startup/**"
       - "scripts/archive_upload.py"
       - "tests/test_archive_upload.py"
+      - "scripts/archive_cloud_logging.py"
+      - "tests/test_archive_cloud_logging.py"
       - ".github/workflows/**"
   workflow_dispatch:
     inputs:
@@ -98,7 +100,7 @@ jobs:
           set -euo pipefail
           terraform init -input=false \
             -backend-config="bucket=${{ fromJson(vars.ENVIRONMENTS_JSON)[matrix.env].state_bucket }}" \
-            -backend-config="prefix=${{ matrix.env }}" 2>&1 | tee -a terraform-console.log
+            -backend-config="prefix=${{ fromJson(vars.ENVIRONMENTS_JSON)[matrix.env].state_prefix }}" 2>&1 | tee -a terraform-console.log
           terraform validate -no-color 2>&1 | tee -a terraform-console.log
           terraform plan -no-color -input=false -var="project_id=prj-dg-cl-apps-dev" -out=tfplan 2>&1 | tee -a terraform-console.log
           terraform show -no-color tfplan > plan.txt 2>> terraform-console.log
@@ -111,7 +113,7 @@ jobs:
         env:
           ARCHIVE_BUCKET: ${{ fromJson(vars.ENVIRONMENTS_JSON)[matrix.env].artifact_bucket }}
           STACK_DIR: environments/${{ matrix.env }}
-          ARCHIVE_PREFIX: deployments/${{ matrix.env }}/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+          ARCHIVE_PREFIX: ${{ fromJson(vars.ENVIRONMENTS_JSON)[matrix.env].artifact_prefix }}/${{ github.run_id }}/attempts/${{ github.run_attempt }}
         run: |
           set -euo pipefail
           files=(validation.json validation-console.log
