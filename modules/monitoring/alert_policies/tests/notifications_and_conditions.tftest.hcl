@@ -131,3 +131,21 @@ run "unknown_selected_channel_fails_before_apply" {
   }
   expect_failures = [google_monitoring_alert_policy.alerts]
 }
+
+run "unsupported_threshold_comparison_fails_before_apply" {
+  command = plan
+  variables {
+    config = {
+      alert_policies = {
+        invalid = {
+          display_name = "Unsupported comparison"
+          filter       = "metric.type=\"run.googleapis.com/container/instance_count\" resource.type=\"cloud_run_revision\""
+          duration     = "300s"
+          comparison   = "COMPARISON_GE"
+          threshold    = 18
+        }
+      }
+    }
+  }
+  expect_failures = [google_monitoring_alert_policy.alerts]
+}

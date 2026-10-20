@@ -133,6 +133,8 @@ creating the channel does not establish inbox delivery. Reminders repeat hourly.
 The strategy auto-closes a no-data incident after 30 minutes. Missing telemetry
 alerts do not independently identify the cause.
 
+Filesystem capacity checks exclude read-only loop devices used by Ubuntu system images.
+
 The hold below is the configured condition duration, in addition to collection
 and ingestion delay. Zero seconds adds no sustained hold.
 
@@ -162,7 +164,7 @@ and ingestion delay. Zero seconds adds no sustained hold.
 | `run-p95-latency` | p95 request latency >1,000 ms | 5 min |
 | `run-cpu-high` | p95 CPU >80% | 5 min |
 | `run-memory-high` | p95 memory >85% | 5 min |
-| `run-instance-capacity` | Instances >=18 (configured cap 20) | 5 min |
+| `run-instance-capacity` | Instances >17 (configured cap 20) | 5 min |
 | `firestore-p95-latency` | p95 successful-request latency >1 second | 5 min |
 | `firestore-quota-errors` | Resource-exhausted response count >0 | No additional hold |
 | `redis-up` | Authenticated local health <1 | 2 min |
