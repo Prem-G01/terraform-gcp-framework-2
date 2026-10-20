@@ -2,6 +2,7 @@ locals {
   bootstrap_apis = toset([
     "iam.googleapis.com", "iamcredentials.googleapis.com", "sts.googleapis.com",
     "cloudresourcemanager.googleapis.com", "serviceusage.googleapis.com", "storage.googleapis.com",
+    "logging.googleapis.com",
   ])
   # Only services present in the Callgenie stack; no production IAM or runtime SAs.
   apply_roles = toset([
@@ -21,31 +22,6 @@ resource "google_project_service" "bootstrap" {
   project            = var.project_id
   service            = each.value
   disable_on_destroy = false
-}
-
-resource "google_storage_bucket" "state" {
-  project                     = var.project_id
-  name                        = var.state_bucket_name
-  location                    = var.region
-  uniform_bucket_level_access = true
-  public_access_prevention    = "enforced"
-  force_destroy               = false
-  versioning { enabled = true }
-  depends_on = [google_project_service.bootstrap]
-}
-
-resource "google_storage_bucket" "artifacts" {
-  project                     = var.project_id
-  name                        = var.artifact_bucket_name
-  location                    = var.region
-  uniform_bucket_level_access = true
-  public_access_prevention    = "enforced"
-  force_destroy               = false
-  lifecycle_rule {
-    condition { age = 90 }
-    action { type = "Delete" }
-  }
-  depends_on = [google_project_service.bootstrap]
 }
 
 resource "google_service_account" "plan" {
@@ -74,28 +50,6 @@ resource "google_project_iam_member" "apply" {
   project  = var.project_id
   role     = each.value
   member   = "serviceAccount:${google_service_account.apply.email}"
-}
-
-# Terraform plans also create/delete a state lock. Scope this access to the
-# dedicated dev state bucket, not project-wide storage permissions.
-resource "google_storage_bucket_iam_member" "state" {
-  for_each = {
-    plan  = google_service_account.plan.email
-    apply = google_service_account.apply.email
-  }
-  bucket = google_storage_bucket.state.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${each.value}"
-}
-
-resource "google_storage_bucket_iam_member" "artifacts" {
-  for_each = {
-    plan  = google_service_account.plan.email
-    apply = google_service_account.apply.email
-  }
-  bucket = google_storage_bucket.artifacts.name
-  role   = "roles/storage.objectCreator"
-  member = "serviceAccount:${each.value}"
 }
 
 resource "google_iam_workload_identity_pool" "github" {
@@ -129,4 +83,67 @@ resource "google_service_account_iam_member" "apply_federation" {
   service_account_id = google_service_account.apply.name
   role               = "roles/iam.workloadIdentityUser"
   member             = "principal://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/subject/${local.apply_subject}"
+}
+
+# Central storage: one bucket for Callgenie state, deployment history, and logs.
+# Do not attach a retention lock: Terraform must be able to delete state locks.
+resource "google_storage_bucket" "history" {
+  project                     = var.storage_project_id
+  name                        = var.history_bucket_name
+  location                    = var.region
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+  force_destroy               = false
+  versioning { enabled = true }
+  soft_delete_policy { retention_duration_seconds = 604800 }
+  labels = {
+    application = "callgenie"
+    purpose     = "deployment-history"
+    managed_by  = "terraform"
+  }
+}
+
+resource "google_storage_bucket_iam_member" "central_state" {
+  for_each = {
+    plan  = google_service_account.plan.email
+    apply = google_service_account.apply.email
+  }
+  bucket = google_storage_bucket.history.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${each.value}"
+  condition {
+    title = "callgenie-state-and-lock-only"
+    # Workspace listing is checked at bucket level; reads/writes remain
+    # limited to Callgenie's active state and transient lock objects.
+    expression = "resource.name == 'projects/_/buckets/${var.history_bucket_name}' || resource.name.startsWith('projects/_/buckets/${var.history_bucket_name}/objects/callgenie/')"
+  }
+}
+
+resource "google_storage_bucket_iam_member" "central_artifacts" {
+  for_each = {
+    plan  = google_service_account.plan.email
+    apply = google_service_account.apply.email
+  }
+  bucket = google_storage_bucket.history.name
+  role   = "roles/storage.objectCreator"
+  member = "serviceAccount:${each.value}"
+  condition {
+    title      = "callgenie-deployment-history-only"
+    expression = "resource.name.startsWith('projects/_/buckets/${var.history_bucket_name}/objects/deployments/callgenie/')"
+  }
+}
+
+resource "google_logging_project_sink" "central_history" {
+  project                = var.project_id
+  name                   = "callgenie-central-history"
+  destination            = "storage.googleapis.com/${google_storage_bucket.history.name}"
+  filter                 = ""
+  unique_writer_identity = true
+  depends_on             = [google_project_service.bootstrap]
+}
+
+resource "google_storage_bucket_iam_member" "log_export_writer" {
+  bucket = google_storage_bucket.history.name
+  role   = "roles/storage.objectCreator"
+  member = google_logging_project_sink.central_history.writer_identity
 }

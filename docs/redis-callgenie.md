@@ -75,7 +75,7 @@ cannot be bypassed by this local override.
 
    ```powershell
    python -m engine.cli render config/environments/callgenie --out environments/callgenie/.generated/deployment.normalized.json --force-security --reason "Approved dev Redis external IP for package downloads without NAT; private Redis bind and restricted ingress"
-   terraform -chdir=environments/callgenie init -backend-config="bucket=prj-dg-cl-apps-dev-tfstate" -backend-config="prefix=callgenie"
+   terraform -chdir=environments/callgenie init -backend-config="bucket=prj-dg-devops-test-callgenie-history" -backend-config="prefix=callgenie"
    terraform -chdir=environments/callgenie validate
    terraform -chdir=environments/callgenie plan "-out=callgenie.tfplan"
    ```
@@ -89,6 +89,9 @@ cannot be bypassed by this local override.
 Terraform finishes creating infrastructure before the startup script necessarily
 finishes. An apply succeeding does not prove that Redis installed successfully.
 Use the checks below. External IPs can incur charges even with NAT disabled.
+The backend bucket is hosted in `prj-dg-devops-test`; the Redis VM and other
+application resources stay in `prj-dg-cl-apps-dev`. A workstation still caching
+the old backend must use the [central-backend reconnection steps](callgenie-history.md#connect-an-existing-workstation-after-migration).
 
 ## Check installation on the Redis VM
 
@@ -126,6 +129,21 @@ process. No Redis secret or application credential injection is created here.
 Applications connect to private address `10.50.1.10:6379`; verify with an
 appropriate Redis client from an application VM or the Cloud Run workload using
 the generated password. An unauthenticated command should return `NOAUTH`.
+
+## Central history and Redis logs
+
+GitHub deployment reports and console archives are retained in the single
+`prj-dg-devops-test-callgenie-history` bucket in `prj-dg-devops-test`, under
+`deployments/callgenie/<run-id>/attempts/<attempt>/`. The Callgenie Cloud Logging
+sink also exports records that reach Cloud Logging to this bucket, in Google's
+log-type/date hierarchy. Exports are batched and may take 2-3 hours to first appear.
+
+`/var/log/callgenie-redis-startup.log` and the Redis/systemd journals shown above
+are local VM files. The sink does not upload them automatically. These VMs have
+no runtime service account or configured log collector; inspect the local files
+through IAP. Shipping their contents to Cloud Logging requires separately
+configured collection and credentials. See [history and recovery](callgenie-history.md)
+for archive paths, historical Cloud Logging backfill, and coverage limits.
 
 ## Retry, change settings, or upgrade later
 

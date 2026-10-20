@@ -14,6 +14,8 @@ on:
       - "platform/**"
       - "engine/**"
       - "scripts/startup/**"
+      - "scripts/archive_upload.py"
+      - "tests/test_archive_upload.py"
       - ".github/workflows/**"
   workflow_dispatch:
     inputs:
@@ -56,16 +58,19 @@ jobs:
         run: |
           set -euo pipefail
           pip install -q -r engine/requirements.txt
-          python -m engine.ci_prepare "${{ matrix.env }}"
+          python -m engine.ci_prepare "${{ matrix.env }}" 2>&1 | tee validation-console.log
 
 
       - id: auth
+        if: ${{ always() }}
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ fromJson(vars.ENVIRONMENTS_JSON)[matrix.env].wif_provider }}
           service_account: ${{ fromJson(vars.ENVIRONMENTS_JSON)[matrix.env].tf_apply_sa }}
 
-      - uses: google-github-actions/setup-gcloud@v2
+      - id: gcloud
+        if: ${{ always() && steps.auth.outcome == 'success' }}
+        uses: google-github-actions/setup-gcloud@v2
 
       # Uploads every cloudfunctions instance's local source to the exact
       # bucket/object its deployment.yaml names, so `apply` deploys the
@@ -93,16 +98,34 @@ jobs:
           set -euo pipefail
           terraform init -input=false \
             -backend-config="bucket=${{ fromJson(vars.ENVIRONMENTS_JSON)[matrix.env].state_bucket }}" \
-            -backend-config="prefix=${{ matrix.env }}"
-          terraform validate
-          terraform plan -input=false -var="project_id=prj-dg-cl-apps-dev" -out=tfplan
-          terraform apply -input=false -auto-approve tfplan
-          terraform output -json > apply_outputs.json
+            -backend-config="prefix=${{ matrix.env }}" 2>&1 | tee -a terraform-console.log
+          terraform validate -no-color 2>&1 | tee -a terraform-console.log
+          terraform plan -no-color -input=false -var="project_id=prj-dg-cl-apps-dev" -out=tfplan 2>&1 | tee -a terraform-console.log
+          terraform show -no-color tfplan > plan.txt 2>> terraform-console.log
+          terraform show -json tfplan > plan.json 2>> terraform-console.log
+          terraform apply -no-color -input=false -auto-approve tfplan 2>&1 | tee -a terraform-console.log
+          terraform output -json > apply_outputs.json 2>> terraform-console.log
 
       - name: Upload apply artifacts
+        if: ${{ always() && steps.auth.outcome == 'success' && steps.gcloud.outcome == 'success' }}
+        env:
+          ARCHIVE_BUCKET: ${{ fromJson(vars.ENVIRONMENTS_JSON)[matrix.env].artifact_bucket }}
+          STACK_DIR: environments/${{ matrix.env }}
+          ARCHIVE_PREFIX: deployments/${{ matrix.env }}/${{ github.run_id }}/attempts/${{ github.run_attempt }}
         run: |
           set -euo pipefail
-          bucket="${{ fromJson(vars.ENVIRONMENTS_JSON)[matrix.env].artifact_bucket }}"
-          gcloud storage cp validation.json \
-            "environments/${{ matrix.env }}/apply_outputs.json" \
-            "gs://${bucket}/deployments/${{ matrix.env }}/${{ github.run_id }}/"
+          files=(validation.json validation-console.log
+            "$STACK_DIR/terraform-console.log" "$STACK_DIR/plan.txt"
+            "$STACK_DIR/plan.json" "$STACK_DIR/apply_outputs.json"
+            "$STACK_DIR/.generated/override-audit.jsonl")
+          existing=()
+          for file in "${files[@]}"; do
+            if [[ -f "$file" ]]; then
+              existing+=("$file")
+            fi
+          done
+          if (( ${#existing[@]} )); then
+            python scripts/archive_upload.py "${existing[@]}"
+          else
+            echo "No apply artifacts were produced before this run stopped."
+          fi
