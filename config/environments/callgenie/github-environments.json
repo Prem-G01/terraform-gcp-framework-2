@@ -1,7 +1,11 @@
 {
   "callgenie": {
-    "artifact_bucket": "prj-dg-devops-test-callgenie-history",
-    "state_bucket": "prj-dg-devops-test-callgenie-history",
+    "artifact_bucket": "infrastructere-terraform-logs",
+    "artifact_prefix": "prj-dg-devops-test-callgenie-history/deployments/callgenie",
+    "history_prefix": "prj-dg-devops-test-callgenie-history",
+    "logging_prefix": "prj-dg-devops-test-callgenie-history/cloud-logging",
+    "state_bucket": "infrastructere-terraform-logs",
+    "state_prefix": "prj-dg-devops-test-callgenie-history/callgenie",
     "tf_apply_sa": "tf-apply-callgenie@prj-dg-cl-apps-dev.iam.gserviceaccount.com",
     "tf_plan_sa": "tf-plan-callgenie@prj-dg-cl-apps-dev.iam.gserviceaccount.com",
     "wif_provider": "projects/1047815843325/locations/global/workloadIdentityPools/callgenie-github/providers/github"

@@ -13,8 +13,12 @@ locals {
   ])
   plan_roles = toset([
     "roles/viewer", "roles/iam.securityReviewer", "roles/serviceusage.serviceUsageConsumer",
+    "roles/logging.privateLogViewer",
   ])
-  apply_subject = "${var.github_subject_prefix}:environment:callgenie"
+  state_prefix    = "${var.history_prefix}/callgenie"
+  artifact_prefix = "${var.history_prefix}/deployments/callgenie"
+  logging_prefix  = "${var.history_prefix}/cloud-logging"
+  apply_subject   = "${var.github_subject_prefix}:environment:callgenie"
 }
 
 resource "google_project_service" "bootstrap" {
@@ -85,11 +89,19 @@ resource "google_service_account_iam_member" "apply_federation" {
   member             = "principal://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/subject/${local.apply_subject}"
 }
 
-# Central storage: one bucket for Callgenie state, deployment history, and logs.
-# Do not attach a retention lock: Terraform must be able to delete state locks.
-resource "google_storage_bucket" "history" {
+resource "google_logging_project_sink" "central_history" {
+  project                = var.project_id
+  name                   = "callgenie-central-history"
+  destination            = "storage.googleapis.com/${google_storage_bucket.shared_history.name}"
+  filter                 = ""
+  unique_writer_identity = true
+  depends_on             = [google_project_service.bootstrap]
+}
+
+# Shared history storage is created once; future environments reuse this bucket.
+resource "google_storage_bucket" "shared_history" {
   project                     = var.storage_project_id
-  name                        = var.history_bucket_name
+  name                        = var.central_bucket_name
   location                    = var.region
   uniform_bucket_level_access = true
   public_access_prevention    = "enforced"
@@ -97,53 +109,53 @@ resource "google_storage_bucket" "history" {
   versioning { enabled = true }
   soft_delete_policy { retention_duration_seconds = 604800 }
   labels = {
-    application = "callgenie"
-    purpose     = "deployment-history"
+    application = "infrastructure"
+    purpose     = "terraform-history"
     managed_by  = "terraform"
   }
+  lifecycle { prevent_destroy = true }
 }
 
-resource "google_storage_bucket_iam_member" "central_state" {
+resource "google_storage_bucket_iam_member" "shared_state" {
   for_each = {
     plan  = google_service_account.plan.email
     apply = google_service_account.apply.email
   }
-  bucket = google_storage_bucket.history.name
+  bucket = google_storage_bucket.shared_history.name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${each.value}"
   condition {
-    title = "callgenie-state-and-lock-only"
-    # Workspace listing is checked at bucket level; reads/writes remain
-    # limited to Callgenie's active state and transient lock objects.
-    expression = "resource.name == 'projects/_/buckets/${var.history_bucket_name}' || resource.name.startsWith('projects/_/buckets/${var.history_bucket_name}/objects/callgenie/')"
+    title      = "callgenie-state-and-checkpoint-only"
+    expression = "resource.name == 'projects/_/buckets/${var.central_bucket_name}' || resource.name.startsWith('projects/_/buckets/${var.central_bucket_name}/objects/${local.state_prefix}/')"
   }
 }
 
-resource "google_storage_bucket_iam_member" "central_artifacts" {
+resource "google_storage_bucket_iam_member" "shared_artifacts" {
   for_each = {
     plan  = google_service_account.plan.email
     apply = google_service_account.apply.email
   }
-  bucket = google_storage_bucket.history.name
+  bucket = google_storage_bucket.shared_history.name
   role   = "roles/storage.objectCreator"
   member = "serviceAccount:${each.value}"
   condition {
     title      = "callgenie-deployment-history-only"
-    expression = "resource.name.startsWith('projects/_/buckets/${var.history_bucket_name}/objects/deployments/callgenie/')"
+    expression = "resource.name.startsWith('projects/_/buckets/${var.central_bucket_name}/objects/${local.artifact_prefix}/')"
   }
 }
 
-resource "google_logging_project_sink" "central_history" {
-  project                = var.project_id
-  name                   = "callgenie-central-history"
-  destination            = "storage.googleapis.com/${google_storage_bucket.history.name}"
-  filter                 = ""
-  unique_writer_identity = true
-  depends_on             = [google_project_service.bootstrap]
+resource "google_storage_bucket_iam_member" "shared_logging" {
+  bucket = google_storage_bucket.shared_history.name
+  role   = "roles/storage.objectCreator"
+  member = "serviceAccount:${google_service_account.plan.email}"
+  condition {
+    title      = "callgenie-cloud-logging-archives-only"
+    expression = "resource.name.startsWith('projects/_/buckets/${var.central_bucket_name}/objects/${local.logging_prefix}/')"
+  }
 }
 
-resource "google_storage_bucket_iam_member" "log_export_writer" {
-  bucket = google_storage_bucket.history.name
+resource "google_storage_bucket_iam_member" "shared_log_export_writer" {
+  bucket = google_storage_bucket.shared_history.name
   role   = "roles/storage.objectCreator"
   member = google_logging_project_sink.central_history.writer_identity
 }

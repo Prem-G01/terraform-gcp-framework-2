@@ -11,7 +11,17 @@ variable "storage_project_id" {
   description = "Central DevOps project hosting the single state/history/log bucket."
   type        = string
 }
-variable "history_bucket_name" {
-  description = "Single central bucket for state, deployment records, and Cloud Logging export."
+
+
+variable "central_bucket_name" {
+  description = "Single shared infrastructure history bucket, created once in the DevOps project."
   type        = string
+}
+variable "history_prefix" {
+  description = "Unique top-level folder for this environment's state, records, and log snapshots."
+  type        = string
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9_-]*$", var.history_prefix))
+    error_message = "Use one nonempty lowercase folder name without slashes."
+  }
 }

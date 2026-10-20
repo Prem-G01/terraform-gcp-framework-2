@@ -75,7 +75,7 @@ cannot be bypassed by this local override.
 
    ```powershell
    python -m engine.cli render config/environments/callgenie --out environments/callgenie/.generated/deployment.normalized.json --force-security --reason "Approved dev Redis external IP for package downloads without NAT; private Redis bind and restricted ingress"
-   terraform -chdir=environments/callgenie init -backend-config="bucket=prj-dg-devops-test-callgenie-history" -backend-config="prefix=callgenie"
+   terraform -chdir=environments/callgenie init -backend-config="bucket=infrastructere-terraform-logs" -backend-config="prefix=prj-dg-devops-test-callgenie-history/callgenie"
    terraform -chdir=environments/callgenie validate
    terraform -chdir=environments/callgenie plan "-out=callgenie.tfplan"
    ```
@@ -132,11 +132,16 @@ the generated password. An unauthenticated command should return `NOAUTH`.
 
 ## Central history and Redis logs
 
-GitHub deployment reports and console archives are retained in the single
-`prj-dg-devops-test-callgenie-history` bucket in `prj-dg-devops-test`, under
-`deployments/callgenie/<run-id>/attempts/<attempt>/`. The Callgenie Cloud Logging
-sink also exports records that reach Cloud Logging to this bucket, in Google's
-log-type/date hierarchy. Exports are batched and may take 2-3 hours to first appear.
+GitHub deployment reports and console archives are retained in the shared
+`infrastructere-terraform-logs` bucket in `prj-dg-devops-test`, under
+`prj-dg-devops-test-callgenie-history/deployments/callgenie/<run-id>/attempts/<attempt>/`.
+Callgenie Cloud Logging snapshots run hourly at minute 17 and write entries and
+manifests beneath `prj-dg-devops-test-callgenie-history/cloud-logging/`. They use
+a ten-minute cutoff and 24-hour overlap; overlapping snapshots can contain
+duplicates. Their checkpoint advances only after all snapshot uploads succeed.
+The native `callgenie-central-history` sink also exports records reaching Cloud
+Logging at the shared bucket root, in Google's log-type/date hierarchy. Native
+exports are batched and may take 2-3 hours to first appear.
 
 `/var/log/callgenie-redis-startup.log` and the Redis/systemd journals shown above
 are local VM files. The sink does not upload them automatically. These VMs have

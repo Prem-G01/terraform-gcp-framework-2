@@ -75,7 +75,7 @@ jobs:
       - name: Archive console logs
         env:
           ARCHIVE_BUCKET: ${{ fromJson(vars.ENVIRONMENTS_JSON).callgenie.artifact_bucket }}
-          ARCHIVE_PREFIX: deployments/callgenie/${{ github.event.workflow_run.id }}/attempts/${{ github.event.workflow_run.run_attempt }}
+          ARCHIVE_PREFIX: ${{ fromJson(vars.ENVIRONMENTS_JSON).callgenie.artifact_prefix }}/${{ github.event.workflow_run.id }}/attempts/${{ github.event.workflow_run.run_attempt }}
         run: |
           set -euo pipefail
           python scripts/archive_upload.py github-console-logs.zip
