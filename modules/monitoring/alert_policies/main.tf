@@ -104,6 +104,13 @@ resource "google_monitoring_alert_policy" "alerts" {
       error_message = "Alert condition_type must be threshold or absence."
     }
     precondition {
+      condition = (
+        try(each.value.condition_type, "threshold") == "absence"
+        || contains(["COMPARISON_GT", "COMPARISON_LT"], try(each.value.comparison, ""))
+      )
+      error_message = "Metric threshold alerts support only COMPARISON_GT or COMPARISON_LT."
+    }
+    precondition {
       condition     = alltrue([for channel in local.channel_keys[each.key] : contains(keys(var.notification_channels), channel)])
       error_message = "Every selected notification_channels key must exist in the notification channel map."
     }

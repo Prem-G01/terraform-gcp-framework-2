@@ -549,6 +549,7 @@ resources:
         display_name: Callgenie Dev | VM filesystem above 85%
         filter: metric.type="agent.googleapis.com/disk/percent_used" AND resource.type="gce_instance"
           AND resource.labels.project_id="prj-dg-cl-apps-dev" AND metric.labels.state="used"
+          AND metric.labels.device != monitoring.regex.full_match("(/dev/)?loop[0-9]+")
         duration: 300s
         severity: WARNING
         notification_channels:
@@ -578,6 +579,7 @@ resources:
         display_name: Callgenie Dev | VM filesystem above 95%
         filter: metric.type="agent.googleapis.com/disk/percent_used" AND resource.type="gce_instance"
           AND resource.labels.project_id="prj-dg-cl-apps-dev" AND metric.labels.state="used"
+          AND metric.labels.device != monitoring.regex.full_match("(/dev/)?loop[0-9]+")
         duration: 120s
         severity: CRITICAL
         notification_channels:
@@ -1197,8 +1199,8 @@ resources:
           notification_prompts:
           - OPENED
           - CLOSED
-        threshold: 18
-        comparison: COMPARISON_GE
+        threshold: 17
+        comparison: COMPARISON_GT
         aligner: ALIGN_MEAN
         alignment_period: 60s
         trigger_count: 1
@@ -1536,9 +1538,7 @@ resources:
           mosaicLayout:
             columns: 12
             tiles:
-            - xPos: 0
-              yPos: 0
-              width: 6
+            - width: 6
               height: 4
               widget:
                 title: VM CPU utilization
@@ -1553,12 +1553,11 @@ resources:
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
             - xPos: 6
-              yPos: 0
               width: 6
               height: 4
               widget:
@@ -1575,12 +1574,11 @@ resources:
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
-            - xPos: 0
-              yPos: 4
+            - yPos: 4
               width: 6
               height: 4
               widget:
@@ -1591,15 +1589,16 @@ resources:
                       timeSeriesFilter:
                         filter: metric.type="agent.googleapis.com/disk/percent_used"
                           AND resource.type="gce_instance" AND resource.labels.project_id="prj-dg-cl-apps-dev"
-                          AND metric.labels.state="used"
+                          AND metric.labels.state="used" AND metric.labels.device !=
+                          monitoring.regex.full_match("(/dev/)?loop[0-9]+")
                         aggregation:
                           alignmentPeriod: 60s
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
             - xPos: 6
               yPos: 4
@@ -1618,12 +1617,11 @@ resources:
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
-            - xPos: 0
-              yPos: 8
+            - yPos: 8
               width: 6
               height: 4
               widget:
@@ -1639,9 +1637,9 @@ resources:
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
             - xPos: 6
               yPos: 8
@@ -1660,6 +1658,7 @@ resources:
                           perSeriesAligner: ALIGN_RATE
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   - timeSeriesQuery:
                       timeSeriesFilter:
                         filter: metric.type="compute.googleapis.com/instance/disk/write_bytes_count"
@@ -1669,12 +1668,11 @@ resources:
                           perSeriesAligner: ALIGN_RATE
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
-            - xPos: 0
-              yPos: 12
+            - yPos: 12
               width: 6
               height: 4
               widget:
@@ -1690,6 +1688,7 @@ resources:
                           perSeriesAligner: ALIGN_RATE
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   - timeSeriesQuery:
                       timeSeriesFilter:
                         filter: metric.type="compute.googleapis.com/instance/disk/write_ops_count"
@@ -1699,9 +1698,9 @@ resources:
                           perSeriesAligner: ALIGN_RATE
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
             - xPos: 6
               yPos: 12
@@ -1720,6 +1719,7 @@ resources:
                           perSeriesAligner: ALIGN_RATE
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   - timeSeriesQuery:
                       timeSeriesFilter:
                         filter: metric.type="compute.googleapis.com/instance/network/sent_bytes_count"
@@ -1729,12 +1729,11 @@ resources:
                           perSeriesAligner: ALIGN_RATE
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
-            - xPos: 0
-              yPos: 16
+            - yPos: 16
               width: 6
               height: 4
               widget:
@@ -1750,9 +1749,9 @@ resources:
                           perSeriesAligner: ALIGN_RATE
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
             - xPos: 6
               yPos: 16
@@ -1771,6 +1770,7 @@ resources:
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   - timeSeriesQuery:
                       timeSeriesFilter:
                         filter: metric.type="cloudsql.googleapis.com/database/memory/utilization"
@@ -1780,12 +1780,11 @@ resources:
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
-            - xPos: 0
-              yPos: 20
+            - yPos: 20
               width: 6
               height: 4
               widget:
@@ -1801,9 +1800,9 @@ resources:
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
             - xPos: 6
               yPos: 20
@@ -1822,6 +1821,7 @@ resources:
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   - timeSeriesQuery:
                       timeSeriesFilter:
                         filter: metric.type="cloudsql.googleapis.com/database/mysql/max_connections"
@@ -1831,12 +1831,11 @@ resources:
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
-            - xPos: 0
-              yPos: 24
+            - yPos: 24
               width: 6
               height: 4
               widget:
@@ -1845,16 +1844,16 @@ resources:
                   dataSets:
                   - timeSeriesQuery:
                       timeSeriesFilter:
-                        filter: metric.type="cloudsql.googleapis.com/database/up"
-                          AND resource.type="cloudsql_database" AND resource.labels.database_id="prj-dg-cl-apps-dev:dg-api-csql"
+                        filter: metric.type="cloudsql.googleapis.com/database/up" AND
+                          resource.type="cloudsql_database" AND resource.labels.database_id="prj-dg-cl-apps-dev:dg-api-csql"
                         aggregation:
                           alignmentPeriod: 60s
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
             - xPos: 6
               yPos: 24
@@ -1873,12 +1872,11 @@ resources:
                           perSeriesAligner: ALIGN_SUM
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
-            - xPos: 0
-              yPos: 28
+            - yPos: 28
               width: 6
               height: 4
               widget:
@@ -1894,9 +1892,9 @@ resources:
                           perSeriesAligner: ALIGN_SUM
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
       callgenie-application:
         dashboard:
@@ -1904,9 +1902,7 @@ resources:
           mosaicLayout:
             columns: 12
             tiles:
-            - xPos: 0
-              yPos: 0
-              width: 6
+            - width: 6
               height: 4
               widget:
                 title: Cloud Run requests / second
@@ -1914,20 +1910,19 @@ resources:
                   dataSets:
                   - timeSeriesQuery:
                       timeSeriesFilter:
-                        filter: metric.type="run.googleapis.com/request_count" AND
-                          resource.type="cloud_run_revision" AND resource.labels.service_name="dg-api-backend-cl"
-                          AND resource.labels.location="asia-south1" AND resource.labels.project_id="prj-dg-cl-apps-dev"
+                        filter: metric.type="run.googleapis.com/request_count" AND resource.type="cloud_run_revision"
+                          AND resource.labels.service_name="dg-api-backend-cl" AND resource.labels.location="asia-south1"
+                          AND resource.labels.project_id="prj-dg-cl-apps-dev"
                         aggregation:
                           alignmentPeriod: 60s
                           perSeriesAligner: ALIGN_RATE
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
             - xPos: 6
-              yPos: 0
               width: 6
               height: 4
               widget:
@@ -1936,21 +1931,19 @@ resources:
                   dataSets:
                   - timeSeriesQuery:
                       timeSeriesFilter:
-                        filter: metric.type="run.googleapis.com/request_count" AND
-                          resource.type="cloud_run_revision" AND resource.labels.service_name="dg-api-backend-cl"
-                          AND resource.labels.location="asia-south1" AND resource.labels.project_id="prj-dg-cl-apps-dev"
-                          AND metric.labels.response_code_class="5xx"
+                        filter: metric.type="run.googleapis.com/request_count" AND resource.type="cloud_run_revision"
+                          AND resource.labels.service_name="dg-api-backend-cl" AND resource.labels.location="asia-south1"
+                          AND resource.labels.project_id="prj-dg-cl-apps-dev" AND metric.labels.response_code_class="5xx"
                         aggregation:
                           alignmentPeriod: 60s
                           perSeriesAligner: ALIGN_RATE
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
-            - xPos: 0
-              yPos: 4
+            - yPos: 4
               width: 6
               height: 4
               widget:
@@ -1959,17 +1952,17 @@ resources:
                   dataSets:
                   - timeSeriesQuery:
                       timeSeriesFilter:
-                        filter: metric.type="run.googleapis.com/request_latencies"
-                          AND resource.type="cloud_run_revision" AND resource.labels.service_name="dg-api-backend-cl"
+                        filter: metric.type="run.googleapis.com/request_latencies" AND
+                          resource.type="cloud_run_revision" AND resource.labels.service_name="dg-api-backend-cl"
                           AND resource.labels.location="asia-south1" AND resource.labels.project_id="prj-dg-cl-apps-dev"
                         aggregation:
                           alignmentPeriod: 60s
                           perSeriesAligner: ALIGN_PERCENTILE_95
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
             - xPos: 6
               yPos: 4
@@ -1989,6 +1982,7 @@ resources:
                           perSeriesAligner: ALIGN_PERCENTILE_95
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   - timeSeriesQuery:
                       timeSeriesFilter:
                         filter: metric.type="run.googleapis.com/container/memory/utilizations"
@@ -1999,12 +1993,11 @@ resources:
                           perSeriesAligner: ALIGN_PERCENTILE_95
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
-            - xPos: 0
-              yPos: 8
+            - yPos: 8
               width: 6
               height: 4
               widget:
@@ -2021,9 +2014,9 @@ resources:
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
             - xPos: 6
               yPos: 8
@@ -2043,12 +2036,11 @@ resources:
                           perSeriesAligner: ALIGN_RATE
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
-            - xPos: 0
-              yPos: 12
+            - yPos: 12
               width: 6
               height: 4
               widget:
@@ -2065,9 +2057,9 @@ resources:
                           perSeriesAligner: ALIGN_PERCENTILE_95
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
             - xPos: 6
               yPos: 12
@@ -2087,6 +2079,7 @@ resources:
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   - timeSeriesQuery:
                       timeSeriesFilter:
                         filter: metric.type="custom.googleapis.com/callgenie/redis/persistence_ok"
@@ -2097,12 +2090,11 @@ resources:
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
-            - xPos: 0
-              yPos: 16
+            - yPos: 16
               width: 6
               height: 4
               widget:
@@ -2119,9 +2111,9 @@ resources:
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
             - xPos: 6
               yPos: 16
@@ -2141,12 +2133,11 @@ resources:
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
-            - xPos: 0
-              yPos: 20
+            - yPos: 20
               width: 6
               height: 4
               widget:
@@ -2163,6 +2154,7 @@ resources:
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   - timeSeriesQuery:
                       timeSeriesFilter:
                         filter: metric.type="custom.googleapis.com/callgenie/redis/blocked_clients"
@@ -2173,9 +2165,9 @@ resources:
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
             - xPos: 6
               yPos: 20
@@ -2195,12 +2187,11 @@ resources:
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
-            - xPos: 0
-              yPos: 24
+            - yPos: 24
               width: 6
               height: 4
               widget:
@@ -2217,6 +2208,7 @@ resources:
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   - timeSeriesQuery:
                       timeSeriesFilter:
                         filter: metric.type="custom.googleapis.com/callgenie/redis/rejected_connections_delta"
@@ -2227,7 +2219,7 @@ resources:
                           perSeriesAligner: ALIGN_MEAN
                     plotType: LINE
                     minAlignmentPeriod: 60s
+                    targetAxis: Y1
                   timeshiftDuration: 0s
                   yAxis:
-                    label: ''
                     scale: LINEAR
