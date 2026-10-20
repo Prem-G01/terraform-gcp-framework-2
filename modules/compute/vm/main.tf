@@ -15,13 +15,14 @@ resource "google_compute_address" "internal" {
 }
 
 resource "google_compute_instance" "vm" {
-  for_each     = var.config.vms
-  project      = var.project_id
-  name         = lookup(each.value, "name", lookup(var.generated_names, each.key, each.key))
-  zone         = each.value.zone
-  machine_type = each.value.machine_type
-  tags         = each.value.tags
-  labels       = each.value.labels
+  for_each                  = var.config.vms
+  project                   = var.project_id
+  name                      = lookup(each.value, "name", lookup(var.generated_names, each.key, each.key))
+  zone                      = each.value.zone
+  machine_type              = each.value.machine_type
+  tags                      = each.value.tags
+  labels                    = each.value.labels
+  allow_stopping_for_update = try(each.value.allow_stopping_for_update, false)
   # startup_script_file is relative to this framework's repository root.
   # Metadata updates do not force VM replacement; rerun the guest script to apply.
   metadata = merge(
@@ -61,7 +62,7 @@ resource "google_compute_instance" "vm" {
   dynamic "service_account" {
     for_each = try(each.value.service_account.enabled, true) ? [each.value.service_account] : []
     content {
-      email  = var.service_accounts[service_account.value.name]
+      email  = try(service_account.value.email, var.service_accounts[service_account.value.name])
       scopes = service_account.value.scopes
     }
   }

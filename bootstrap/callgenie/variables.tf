@@ -25,3 +25,5 @@ variable "history_prefix" {
     error_message = "Use one nonempty lowercase folder name without slashes."
   }
 }
+
+variable "monitoring_service_account_id" { type = string }

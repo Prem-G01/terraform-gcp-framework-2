@@ -27,7 +27,10 @@ Ten primary resources: bucket dg-cl-dev; two empty secret containers
 dg-api-token-private-key-cl and dg-api-mysql-connection-cl; Cloud Run dg-api-backend-cl;
 Cloud SQL dg-api-csql; Artifact Registry dg-api; Firestore (default); and VMs
 dg-lk-server-vm, dg-cl-vm, dg-cg-redis-vm. Networking, API enablements, the reserved address, and related resources increase
-Terraform's total. Dedicated runtime service-account creation is disabled.
+Terraform's total. The application stack's service-account creation remains disabled;
+bootstrap manages the monitoring-only account attached to all three VMs.
+The configuration includes 36 alerts, two dashboards, and nine custom Redis metric
+descriptors; see [monitoring and troubleshooting](monitoring-callgenie.md).
 
 The bucket name is copied exactly from the workbook and must be globally available.
 
@@ -59,16 +62,20 @@ The bucket name is copied exactly from the workbook and must be globally availab
   VPC Service Controls and organization policies are not managed in this environment.
 
 This is an infrastructure baseline, not a complete application authentication system.
-VMs explicitly disable service-account attachment. Cloud Run uses the existing
-project default compute service account; that identity must exist for deployment.
-No dedicated runtime service accounts or project-level role grants are created.
-The deploying identity also needs Firestore create/update permissions (for example,
-roles/datastore.owner); curated bootstrap deployment identities are not updated here.
+The three VMs attach `callgenie-monitoring@prj-dg-cl-apps-dev.iam.gserviceaccount.com`,
+managed by isolated bootstrap with only Monitoring Metric Writer and Logs Writer
+roles. Cloud Run retains its existing project default compute service account.
+The application `service_accounts` module stays disabled. CI has separate
+deployment roles, including Monitoring management. Attaching the monitoring
+identity can briefly stop/restart VMs; these restarts are approved for the rollout.
 The operator supplies IAP tunnel/OS Login/service-account access, Cloud Run invoker
 access, and resource-scoped application IAM permissions as required.
 The Redis VM installs Redis using its startup script; see [Redis setup](redis-callgenie.md).
-Application VMs do not install application software. Redis client credentials and
-TLS setup remain operator-managed.
+Application VMs do not install application software. Monitoring uses the operator-run
+IAP guest installation in [monitoring setup](monitoring-callgenie.md#install-or-reinstall-inside-the-vms).
+Ops Agent collects host metrics and system journals; Redis additionally collects
+Redis file logs and runs a local authenticated metric collector. Redis client
+credentials and TLS setup remain operator-managed.
 No usernames, passwords, secret values, or application credentials are stored in YAML.
 
 IAP reference: https://docs.cloud.google.com/iap/docs/using-tcp-forwarding
@@ -99,6 +106,8 @@ resource's purpose. The framework environment key remains `callgenie`.
   deployment if one dedicated CPU is required; N1 custom-1-1024 is an alternative.
   CPU platform is left at the selected machine family's provider default.
   Reference: https://docs.cloud.google.com/compute/docs/general-purpose-machines
+- SQL Query Insights is enabled with a 1,024-character query string limit; application
+  tags and client-address recording remain disabled. Query data requires real workload.
 - SQL explicitly selects MYSQL_8_4, ENTERPRISE, db-custom-1-3840, REGIONAL HA,
   20 GB SSD with autoresize, backups, MySQL binary logs/PITR, and both Terraform
   and GCP deletion protection. Backup retention after deletion is disabled.
@@ -163,8 +172,8 @@ set `state_prefix` to `prj-dg-devops-test-callgenie-history/callgenie`,
 `artifact_prefix` to `prj-dg-devops-test-callgenie-history/deployments/callgenie`,
 and `logging_prefix` to `prj-dg-devops-test-callgenie-history/cloud-logging`.
 The identity settings are unchanged.
-Disabling runtime service accounts does not remove the need for CI
-identities to authenticate Terraform. Do not store service-account keys in Git.
+The monitoring-only VM account is separate from the CI identities that authenticate
+Terraform and from application credentials. Do not store service-account keys in Git.
 
 The deployment repository is `Prem-G01/terraform-gcp-framework-2`. Both workflows
 are restricted to `callgenie` and explicitly plan against `prj-dg-cl-apps-dev`.
@@ -207,8 +216,8 @@ CI accounts to Callgenie's state, deployment, and snapshot paths. The shared
 bucket has Terraform `prevent_destroy`, versioning, seven-day soft delete, and no
 automatic lifecycle deletion. A project sink named `callgenie-central-history`
 exports Callgenie Cloud Logging records to the bucket root; the hourly snapshot
-job also archives records in Callgenie's folder. The bootstrap creates no VM
-runtime accounts and does not reuse Saafe state.
+job also archives records in Callgenie's folder. Bootstrap manages the single
+monitoring-only VM account and its two write roles; it does not reuse Saafe state.
 
 Future environments must use distinct folders and prefix-scoped CI IAM in this
 same bucket. Reuse the existing bucket rather than creating another or declaring

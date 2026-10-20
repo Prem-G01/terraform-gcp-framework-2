@@ -1,0 +1,42 @@
+{
+  "apiVersion": "platform.gcp/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "test",
+    "environment": "dev",
+    "owner": "devops"
+  },
+  "project": {
+    "id": "prj-dg-devops-test"
+  },
+  "region": {
+    "primary": "asia-south1"
+  },
+  "resources": {
+    "dashboards": {
+      "enabled": true,
+      "instances": {
+        "overview": {
+          "dashboard": {
+            "displayName": "Test Overview",
+            "mosaicLayout": {
+              "columns": 12,
+              "tiles": [
+                {
+                  "width": 12,
+                  "height": 3,
+                  "widget": {
+                    "text": {
+                      "content": "Operations",
+                      "format": "MARKDOWN"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

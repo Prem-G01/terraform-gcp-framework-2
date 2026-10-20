@@ -25,7 +25,7 @@ run "complete_callgenie_stack_simulates_without_cloud_access" {
   }
 
   assert {
-    condition     = length(output.enabled_resources) == 13
+    condition     = length(output.enabled_resources) == 17
     error_message = "The requested services and supporting infrastructure must all be enabled."
   }
   assert {

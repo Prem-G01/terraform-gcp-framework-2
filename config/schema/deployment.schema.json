@@ -199,6 +199,12 @@
         },
         "firestore": {
           "$ref": "#/definitions/resourceBlock"
+        },
+        "dashboards": {
+          "$ref": "#/definitions/resourceBlock"
+        },
+        "metric_descriptors": {
+          "$ref": "#/definitions/resourceBlock"
         }
       }
     }

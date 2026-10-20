@@ -15,7 +15,8 @@
 
 - Terraform wiring: `modules/compute/vm/main.tf` reads `startup_script_file`
   relative to the repository root, normalizes line endings, and puts its content
-  into the VM's `startup-script` metadata. No bucket or VM service account is needed.
+  into the VM's `startup-script` metadata. Redis installation uses metadata;
+  the separate monitoring-only VM identity is used by telemetry collectors.
 - Runtime configuration: `/etc/redis/callgenie.conf` on the Redis VM. Change the
   repository script for lasting changes rather than only editing the VM.
 
@@ -43,8 +44,9 @@ The script itself does not perform upgrades on every reboot.
 ## Network requirement and selected approach
 
 The approved approach gives **only the Redis VM** an ephemeral public IP for
-outbound package downloads. NAT and the dedicated router remain disabled; no VM
-service account is attached. The VPC default internet route must remain enabled.
+outbound package downloads. NAT and the dedicated router remain disabled.
+A bootstrap-managed monitoring-only identity is attached for metric/log publishing.
+The VPC default internet route must remain enabled.
 DNS resolution and outbound HTTP/HTTPS to Debian package mirrors and
 `packages.redis.io` must be allowed by project and organization policies.
 Private Google Access alone cannot reach these external repositories.
@@ -111,21 +113,16 @@ sudo systemctl status redis-server --no-pager
 redis-server --version
 sudo cat /var/lib/callgenie-bootstrap/redis-installed-version.txt
 sudo ss -lntp | grep ':6379'
-sudo bash -c 'REDISCLI_AUTH="$(cat /etc/redis/callgenie.password)" redis-cli --no-auth-warning -h 127.0.0.1 ping'
+sudo bash -c 'read -r REDISCLI_AUTH < /etc/redis/callgenie.password; export REDISCLI_AUTH; redis-cli --no-auth-warning -h 127.0.0.1 ping'
 ```
 
 The final command should print `PONG`. The listener should use `127.0.0.1` and
 `10.50.1.10`, rather than `0.0.0.0`. The password is in
 `/etc/redis/callgenie.password` (root owned, readable by the Redis group).
-An authorized operator can retrieve it with:
-
-```bash
-sudo cat /etc/redis/callgenie.password
-```
-
-Do not commit the password, include it in startup metadata, or paste it into logs.
-Supply it to application configuration through your chosen secret-management
-process. No Redis secret or application credential injection is created here.
+Keep its value out of terminal output, startup metadata, Git, and logs. Supply it
+to application configuration through the authorized secret-management process.
+The local monitoring collector reads the file as root and uses `REDISCLI_AUTH`;
+it does not place the value in Ops Agent configuration or command arguments. No Redis secret or application credential injection is created here.
 Applications connect to private address `10.50.1.10:6379`; verify with an
 appropriate Redis client from an application VM or the Cloud Run workload using
 the generated password. An unauthenticated command should return `NOAUTH`.
@@ -143,12 +140,15 @@ The native `callgenie-central-history` sink also exports records reaching Cloud
 Logging at the shared bucket root, in Google's log-type/date hierarchy. Native
 exports are batched and may take 2-3 hours to first appear.
 
-`/var/log/callgenie-redis-startup.log` and the Redis/systemd journals shown above
-are local VM files. The sink does not upload them automatically. These VMs have
-no runtime service account or configured log collector; inspect the local files
-through IAP. Shipping their contents to Cloud Logging requires separately
-configured collection and credentials. See [history and recovery](callgenie-history.md)
-for archive paths, historical Cloud Logging backfill, and coverage limits.
+Monitoring installs Ops Agent on all three VMs with 60-second host metrics and
+system journal collection. Redis additionally collects
+`/var/log/callgenie-redis-startup.log` and `/var/log/redis/redis-server.log`.
+Its bootstrap-managed monitoring identity has only metric/log write roles.
+A separate root collector publishes nine numeric custom Redis metrics every
+60 seconds using the local password file. Monitoring preserves the 256 MiB
+maxmemory and AOF settings. See [monitoring setup](monitoring-callgenie.md) for
+installation, alerts, dashboards, and safe troubleshooting, and
+[history and recovery](callgenie-history.md) for both archive routes and coverage limits.
 
 ## Retry, change settings, or upgrade later
 

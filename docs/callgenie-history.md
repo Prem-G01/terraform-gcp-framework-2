@@ -101,10 +101,15 @@ they were archived.
 Older `logging-backfill/callgenie/<timestamp>/` exports retain their original
 manifests and bounded coverage. Additional retained records can be copied using
 Google's [historical copy procedure](https://docs.cloud.google.com/logging/docs/routing/copy-logs).
-Redis startup logs and systemd journals remain on the VM unless a collector
-ships them to Cloud Logging. The current VMs have no attached runtime service
-accounts or configured log collector. Use the [Redis IAP checks](redis-callgenie.md#check-installation-on-the-redis-vm)
-to read those local logs. See Google's [Cloud Storage export behavior](https://docs.cloud.google.com/logging/docs/export/storage)
+Monitoring installs Ops Agent on all three VMs to send system journals to Cloud
+Logging. Redis additionally collects its server and startup log files. The
+bootstrap-managed monitoring-only identity has metric/log write roles; the custom
+collector does not log passwords or full INFO responses. These records then
+follow both native export and hourly folder snapshots described above. Files
+outside configured sources need an explicit receiver. See [monitoring setup](monitoring-callgenie.md)
+and the [Redis IAP checks](redis-callgenie.md#check-installation-on-the-redis-vm) for verification.
+Package verification and operational rollout records belong under Callgenie's
+`history/monitoring-rollout/` folder. See Google's [Cloud Storage export behavior](https://docs.cloud.google.com/logging/docs/export/storage)
 for native batching and log organization.
 
 ## Shared bucket and future environments

@@ -230,13 +230,29 @@ module "notification_channels" {
   depends_on = [module.apis]
 }
 
+module "metric_descriptors" {
+  count      = local.enabled.metric_descriptors ? 1 : 0
+  source     = "../modules/monitoring/metric_descriptors"
+  project_id = var.project_id
+  config     = { metric_descriptors = local.instances.metric_descriptors }
+  depends_on = [module.apis]
+}
+
+module "dashboards" {
+  count      = local.enabled.dashboards ? 1 : 0
+  source     = "../modules/monitoring/dashboards"
+  project_id = var.project_id
+  config     = { dashboards = local.instances.dashboards }
+  depends_on = [module.apis]
+}
+
 module "alert_policies" {
   count                 = local.enabled.alert_policies ? 1 : 0
   source                = "../modules/monitoring/alert_policies"
   project_id            = var.project_id
   config                = { alert_policies = local.instances.alert_policies }
   notification_channels = try(module.notification_channels[0].channels, {})
-  depends_on            = [module.notification_channels, module.vm, module.cloudsql]
+  depends_on            = [module.notification_channels, module.metric_descriptors, module.vm, module.cloudsql]
 }
 
 module "uptime_checks" {

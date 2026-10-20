@@ -33,3 +33,9 @@ output "service_account_emails" {
 output "iap_bindings" {
   value = module.platform.iap_bindings
 }
+
+output "notification_channel_names" { value = module.platform.notification_channel_names }
+
+output "alert_policy_names" { value = module.platform.alert_policy_names }
+
+output "monitoring_dashboard_ids" { value = module.platform.monitoring_dashboard_ids }
