@@ -20,7 +20,7 @@ locals {
   resource_types = [
     "apis", "vpc", "subnet", "firewall", "router", "nat", "private_service_access",
     "service_accounts", "vm", "secrets", "cloudsql", "buckets", "artifact_registry",
-    "kms", "pubsub", "cloudtasks", "cloudrun", "load_balancer", "scheduler",
+    "kms", "pubsub", "cloudtasks", "cloudrun", "cloudrun_jobs", "load_balancer", "scheduler",
     "workflows", "notification_channels", "metric_descriptors", "alert_policies", "uptime_checks", "dashboards",
     "logging", "bigquery", "documentai", "firestore",
     "gke", "cloudfunctions", "memorystore", "vpc_service_controls",

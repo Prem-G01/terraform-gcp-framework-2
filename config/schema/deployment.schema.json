@@ -40,7 +40,8 @@
             "uat",
             "prod",
             "saafe",
-            "callgenie"
+            "callgenie",
+            "digitap"
           ]
         },
         "owner": {
@@ -204,6 +205,9 @@
           "$ref": "#/definitions/resourceBlock"
         },
         "metric_descriptors": {
+          "$ref": "#/definitions/resourceBlock"
+        },
+        "cloudrun_jobs": {
           "$ref": "#/definitions/resourceBlock"
         }
       }

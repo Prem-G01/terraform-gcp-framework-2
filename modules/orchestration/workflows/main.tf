@@ -32,7 +32,7 @@ resource "google_workflows_workflow" "workflow" {
 
     var.service_accounts,
 
-    each.value.service_account,
+    lookup(each.value, "service_account", ""),
 
     null
 
@@ -40,7 +40,10 @@ resource "google_workflows_workflow" "workflow" {
 
 
 
-  source_contents = each.value.source_contents
+  call_log_level          = lookup(each.value, "call_log_level", null)
+  execution_history_level = lookup(each.value, "execution_history_level", null)
+  labels                  = lookup(each.value, "labels", {})
+  source_contents         = each.value.source_contents
 
   deletion_protection = lookup(each.value, "deletion_protection", true)
 
