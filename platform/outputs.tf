@@ -103,3 +103,7 @@ output "uptime_check_names" {
 output "monitoring_dashboard_ids" {
   value = try(module.dashboards[0].dashboards, {})
 }
+
+output "cloudrun_job_names" {
+  value = try(module.cloudrun_jobs[0].names, {})
+}

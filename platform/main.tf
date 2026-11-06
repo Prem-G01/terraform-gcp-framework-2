@@ -192,6 +192,17 @@ module "cloudrun" {
   depends_on       = [module.apis, module.service_accounts, module.nat]
 }
 
+module "cloudrun_jobs" {
+  count            = local.enabled.cloudrun_jobs ? 1 : 0
+  source           = "../modules/compute/cloudrun_jobs"
+  project_id       = var.project_id
+  config           = { jobs = local.instances.cloudrun_jobs }
+  service_accounts = try(module.service_accounts[0].emails, {})
+  vpcs             = try(module.vpc[0].self_links, {})
+  subnets          = try(module.subnet[0].self_links, {})
+  depends_on       = [module.apis, module.service_accounts, module.nat, module.artifact_registry]
+}
+
 module "load_balancer" {
   count             = local.enabled.load_balancer ? 1 : 0
   source            = "../modules/networking/load_balancer"

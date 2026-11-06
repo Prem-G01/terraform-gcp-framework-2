@@ -1,0 +1,340 @@
+# Source: GCP Resource List Digitap BSA V3.xlsx; user-approved private Redis and authenticated Cloud Run.
+# PLACEHOLDER containers/workflow: infrastructure baseline only, not the Digitap application.
+apiVersion: platform.gcp/v1
+kind: Deployment
+metadata:
+  name: digitap-prod
+  environment: digitap
+  owner: devops
+project:
+  id: prj-dg-api-prod-shared
+region:
+  primary: asia-south1
+resources:
+  apis:
+    enabled: true
+    services:
+    - serviceusage.googleapis.com
+    - compute.googleapis.com
+    - iam.googleapis.com
+    - cloudresourcemanager.googleapis.com
+    - logging.googleapis.com
+    - monitoring.googleapis.com
+    - storage.googleapis.com
+    - secretmanager.googleapis.com
+    - artifactregistry.googleapis.com
+    - run.googleapis.com
+    - workflows.googleapis.com
+    - workflowexecutions.googleapis.com
+    - iap.googleapis.com
+    - oslogin.googleapis.com
+    - containerscanning.googleapis.com
+  vpc:
+    enabled: true
+    instances:
+      digitap-prod-vpc:
+        auto_create_subnetworks: false
+        routing_mode: REGIONAL
+        delete_default_routes_on_create: true
+        create_default_internet_route: true
+        mtu: 1460
+  subnet:
+    enabled: true
+    instances:
+      digitap-prod-vm-subnet:
+        vpc: digitap-prod-vpc
+        region: '{region}'
+        cidr: 10.60.1.0/24
+        private_ip_google_access: true
+        flow_logs:
+          enabled: true
+          aggregation_interval: INTERVAL_5_SEC
+          flow_sampling: 0.5
+          metadata: INCLUDE_ALL_METADATA
+      digitap-prod-run-subnet:
+        vpc: digitap-prod-vpc
+        region: '{region}'
+        cidr: 10.60.2.0/24
+        private_ip_google_access: true
+        flow_logs:
+          enabled: true
+          aggregation_interval: INTERVAL_5_SEC
+          flow_sampling: 0.5
+          metadata: INCLUDE_ALL_METADATA
+  firewall:
+    enabled: true
+    instances:
+      digitap-allow-iap-ssh:
+        network: digitap-prod-vpc
+        direction: INGRESS
+        source_ranges:
+        - 35.235.240.0/20
+        target_tags:
+        - digitap-iap-ssh
+        allow:
+        - protocol: tcp
+          ports:
+          - '22'
+      digitap-allow-run-redis:
+        network: digitap-prod-vpc
+        direction: INGRESS
+        source_ranges:
+        - 10.60.2.0/24
+        target_tags:
+        - digitap-redis
+        allow:
+        - protocol: tcp
+          ports:
+          - '6379'
+  router:
+    enabled: true
+    instances:
+      digitap-prod-router:
+        region: '{region}'
+        network: digitap-prod-vpc
+        bgp:
+          asn: 64514
+          advertise_mode: DEFAULT
+  nat:
+    enabled: true
+    instances:
+      digitap-prod-nat:
+        region: '{region}'
+        router: digitap-prod-router
+        nat_ip_allocate_option: AUTO_ONLY
+        source_subnetwork_ip_ranges_to_nat: ALL_SUBNETWORKS_ALL_IP_RANGES
+        min_ports_per_vm: 64
+        log_config:
+          enable: true
+          filter: ERRORS_ONLY
+  service_accounts:
+    enabled: true
+    instances:
+      digitap-runtime:
+        account_id: digitap-prod-runtime
+        display_name: Digitap production application runtime
+        description: Application identity; grant resource-specific application access
+          separately.
+        roles: []
+  vm:
+    enabled: true
+    instances:
+      dg-api-digitap-redis:
+        name: dg-api-digitap-redis
+        zone: '{region}-a'
+        machine_type: e2-custom-small-1024
+        subnet: digitap-prod-vm-subnet
+        deletion_protection: true
+        allow_stopping_for_update: true
+        service_account:
+          enabled: false
+        startup_script_file: scripts/startup/digitap-redis.sh
+        boot_disk:
+          image: projects/debian-cloud/global/images/family/debian-12
+          size_gb: 10
+          type: pd-balanced
+        network:
+          public_ip: false
+          internal_ip: 10.60.1.10
+        shielded_vm:
+          secure_boot: true
+          vtpm: true
+          integrity_monitoring: true
+        metadata:
+          enable-oslogin: 'TRUE'
+          block-project-ssh-keys: 'TRUE'
+          disable-legacy-endpoints: 'TRUE'
+        tags:
+        - digitap-iap-ssh
+        - digitap-redis
+        labels:
+          application: digitap
+          environment: prod
+  buckets:
+    enabled: true
+    instances:
+      dg-api-digitap:
+        name: dg-api-digitap
+        location: '{region}'
+        storage_class: STANDARD
+        force_destroy: false
+        uniform_bucket_level_access: true
+        public_access_prevention: enforced
+        versioning:
+          enabled: true
+        lifecycle:
+          enabled: false
+        labels:
+          application: digitap
+          environment: prod
+  secrets:
+    enabled: true
+    instances:
+      dg-api-digitap-mysql-connection:
+        secret_id: dg-api-digitap-mysql-connection
+        manage_version: false
+        length: 32
+        special: true
+        deletion_protection: true
+  artifact_registry:
+    enabled: true
+    instances:
+      dg-api-digitap:
+        repository_id: dg-api-digitap
+        format: DOCKER
+        location: '{region}'
+        mode: STANDARD_REPOSITORY
+        description: Digitap production container images
+        cleanup_policy_dry_run: true
+        cleanup_policy:
+          enabled: false
+        labels:
+          application: digitap
+          environment: prod
+  cloudrun:
+    enabled: true
+    instances:
+      dg-api-digitap-backend:
+        name: dg-api-digitap-backend
+        location: '{region}'
+        ingress: INGRESS_TRAFFIC_ALL
+        allow_unauthenticated: false
+        deletion_protection: true
+        service_account:
+          name: digitap-runtime
+        image:
+          repository: us-docker.pkg.dev
+          path: cloudrun/container/hello
+          tag: latest
+        concurrency: 40
+        timeout: 300s
+        execution_environment: EXECUTION_ENVIRONMENT_GEN2
+        scaling:
+          min_instance_count: 0
+          max_instance_count: 5
+        resources:
+          cpu: '1'
+          memory: 1Gi
+          cpu_idle: true
+          startup_cpu_boost: false
+        vpc_access:
+          network: digitap-prod-vpc
+          subnet: digitap-prod-run-subnet
+          egress: PRIVATE_RANGES_ONLY
+        env:
+          DEPLOYMENT_STATUS: PLACEHOLDER_REPLACE_WITH_DIGITAP_IMAGE
+        labels:
+          application: digitap
+          environment: prod
+      dg-api-digitap-ai:
+        name: dg-api-digitap-ai
+        location: '{region}'
+        ingress: INGRESS_TRAFFIC_ALL
+        allow_unauthenticated: false
+        deletion_protection: true
+        service_account:
+          name: digitap-runtime
+        image:
+          repository: us-docker.pkg.dev
+          path: cloudrun/container/hello
+          tag: latest
+        concurrency: 40
+        timeout: 300s
+        execution_environment: EXECUTION_ENVIRONMENT_GEN2
+        scaling:
+          min_instance_count: 0
+          max_instance_count: 5
+        resources:
+          cpu: '1'
+          memory: 1Gi
+          cpu_idle: true
+          startup_cpu_boost: false
+        vpc_access:
+          network: digitap-prod-vpc
+          subnet: digitap-prod-run-subnet
+          egress: PRIVATE_RANGES_ONLY
+        env:
+          DEPLOYMENT_STATUS: PLACEHOLDER_REPLACE_WITH_DIGITAP_IMAGE
+        labels:
+          application: digitap
+          environment: prod
+      dg-api-digitap-bsa:
+        name: dg-api-digitap-bsa
+        location: '{region}'
+        ingress: INGRESS_TRAFFIC_ALL
+        allow_unauthenticated: false
+        deletion_protection: true
+        service_account:
+          name: digitap-runtime
+        image:
+          repository: us-docker.pkg.dev
+          path: cloudrun/container/hello
+          tag: latest
+        concurrency: 40
+        timeout: 300s
+        execution_environment: EXECUTION_ENVIRONMENT_GEN2
+        scaling:
+          min_instance_count: 0
+          max_instance_count: 5
+        resources:
+          cpu: '1'
+          memory: 1Gi
+          cpu_idle: true
+          startup_cpu_boost: false
+        vpc_access:
+          network: digitap-prod-vpc
+          subnet: digitap-prod-run-subnet
+          egress: PRIVATE_RANGES_ONLY
+        env:
+          DEPLOYMENT_STATUS: PLACEHOLDER_REPLACE_WITH_DIGITAP_IMAGE
+        labels:
+          application: digitap
+          environment: prod
+  cloudrun_jobs:
+    enabled: true
+    instances:
+      dg-api-digitap-bsa-job:
+        name: dg-api-digitap-bsa-job
+        location: '{region}'
+        image: us-docker.pkg.dev/cloudrun/container/hello:latest
+        command:
+        - /bin/sh
+        args:
+        - -c
+        - echo "Placeholder only. Replace with the Digitap BSA job image and remove
+          command/args before use."; exit 1
+        task_count: 1
+        parallelism: 1
+        max_retries: 1
+        timeout: 43200s
+        resources:
+          cpu: '1'
+          memory: 4Gi
+        service_account:
+          name: digitap-runtime
+        vpc_access:
+          network: digitap-prod-vpc
+          subnet: digitap-prod-run-subnet
+          egress: PRIVATE_RANGES_ONLY
+        deletion_protection: true
+        labels:
+          application: digitap
+          environment: prod
+  workflows:
+    enabled: true
+    instances:
+      dg-api-digitap-bsa-processing:
+        name: dg-api-digitap-bsa-processing
+        region: '{region}'
+        use_default_service_account: true
+        description: 'Placeholder: replace source_contents with Digitap BSA processing
+          workflow.'
+        call_log_level: LOG_ALL_CALLS
+        execution_history_level: EXECUTION_HISTORY_BASIC
+        deletion_protection: true
+        source_contents: "main:\n  steps:\n    - notConfigured:\n        raise: \"\
+          Digitap BSA workflow is not configured. Replace this placeholder before\
+          \ use.\"\n"
+        labels:
+          application: digitap
+          environment: prod

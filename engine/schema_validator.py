@@ -40,6 +40,7 @@ RESOURCE_RULES: dict[str, dict] = {
     "pubsub": {"required": ["topic.name"]},
     "cloudtasks": {"required": ["location"]},
     "cloudrun": {"required": ["location", "image.repository", "image.path", "image.tag"]},
+    "cloudrun_jobs": {"required": ["location", "image", "resources.cpu", "resources.memory", "timeout", "task_count", "parallelism", "max_retries"]},
     "load_balancer": {"required": ["region", "backend.type", "backend.service"]},
     "scheduler": {"required": ["location", "schedule", "http_target.uri"]},
     "workflows": {"required": ["region", "service_account", "source_contents"]},
@@ -131,7 +132,9 @@ def validate_required_fields(deployment) -> list[Finding]:
                 or _get_path(instance, "service_account.email") not in (None, "")
             ):
                 required.remove("service_account.name")
-            if rtype == "cloudrun" and instance.get("vpc_access") is not None:
+            if rtype == "workflows" and instance.get("use_default_service_account") is True:
+                required.remove("service_account")
+            if rtype in ("cloudrun", "cloudrun_jobs") and instance.get("vpc_access") is not None:
                 required.extend(["vpc_access.network", "vpc_access.subnet"])
             missing = [p for p in required if _get_path(instance, p) in (None, "")]
             if missing:

@@ -24,7 +24,7 @@ def unapproved_errors(environment, report):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("environment", choices=["dev", "sit", "uat", "prod", "saafe", "callgenie"])
+    parser.add_argument("environment", choices=["dev", "sit", "uat", "prod", "saafe", "callgenie", "digitap"])
     args = parser.parse_args(argv)
     env_dir = Path("config/environments") / args.environment
     with Path("validation.json").open("w", encoding="utf-8") as output:

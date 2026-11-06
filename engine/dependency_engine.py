@@ -35,6 +35,7 @@ INSTANCE_REFERENCES: dict[str, list[tuple[str, str]]] = {
         ("vpc_access.network", "vpc"),
         ("vpc_access.subnet", "subnet"),
     ],
+    "cloudrun_jobs": [("service_account.name", "service_accounts"), ("vpc_access.network", "vpc"), ("vpc_access.subnet", "subnet")],
     "load_balancer": [("backend.service", "cloudrun")],
     "workflows": [("service_account", "service_accounts")],
     "gke": [("network", "vpc"), ("subnet", "subnet"), ("node_pool.service_account", "service_accounts")],
@@ -173,7 +174,11 @@ def validate_instance_references(deployment) -> list[Finding]:
                 _check_reference(deployment, enabled, f"{rtype}.{name}", field_path, value, target_type, findings)
 
     # Direct VPC needs a subnet in the selected network and service region.
-    services = deployment.instances("cloudrun") if "cloudrun" in enabled else {}
+    services = {
+        f"{rtype}.{name}": service
+        for rtype in ("cloudrun", "cloudrun_jobs") if rtype in enabled
+        for name, service in deployment.instances(rtype).items()
+    }
     for name, service in services.items():
         access = service.get("vpc_access")
         if not isinstance(access, dict):
@@ -190,7 +195,7 @@ def validate_instance_references(deployment) -> list[Finding]:
                     severity="ERROR",
                     category="dependency",
                     rule="CLOUDRUN_VPC_MISMATCH",
-                    resource=f"cloudrun.{name}",
+                    resource=name,
                     message=f"VPC access subnet {field} is '{actual}', expected '{expected}'.",
                 ))
 
